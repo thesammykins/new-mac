@@ -1,0 +1,58 @@
+---
+- name: Setup Work Mac Configuration
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars:
+    temp_dir: "/tmp/mac-setup"
+    dotfiles_repo: "{{ temp_dir }}/dotfiles"
+    brewfile_repo: "{{ temp_dir }}/brewfile"
+
+  tasks:
+    - name: Ensure .config directory exists
+      file:
+        path: "{{ ansible_env.HOME }}/.config"
+        state: directory
+        mode: '0755'
+
+    - name: Copy dotfiles
+      copy:
+        src: "{{ dotfiles_repo }}/{{ item }}"
+        dest: "{{ ansible_env.HOME }}/{{ item }}"
+        mode: '0644'
+      with_items:
+        - .zshrc
+        - .bashrc
+
+    - name: Install Homebrew packages from Brewfile
+      command: brew bundle --file={{ brewfile_repo }}/Brewfile
+      register: brew_result
+      changed_when: brew_result.rc == 0
+      failed_when: brew_result.rc != 0 and brew_result.rc != 1
+
+    - name: Configure system preferences
+      command: "{{ item }}"
+      with_items:
+        # Dock settings
+        - defaults write com.apple.dock autohide -bool true
+        - defaults write com.apple.dock show-recents -bool false
+        - defaults write com.apple.dock tilesize -int 36
+        
+        # Finder settings
+        - defaults write com.apple.finder ShowPathbar -bool true
+        - defaults write com.apple.finder ShowStatusBar -bool true
+        - defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+        
+        # System settings
+        - defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+        - defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+      notify: Restart affected apps
+
+  handlers:
+    - name: Restart affected apps
+      command: "{{ item }}"
+      with_items:
+        - killall Dock
+        - killall Finder
+
