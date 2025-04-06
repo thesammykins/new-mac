@@ -1,0 +1,194 @@
+---
+- name: Setup and Validate Repositories
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars:
+    # Base directories and repos
+    temp_dir: "/tmp/mac-setup"
+    dotfiles_repo: "{{ temp_dir }}/dotfiles"
+    brewfile_repo: "{{ temp_dir }}/brewfile"
+    user_home: "{{ ansible_env.HOME }}"
+    
+    # Git repository URLs
+    dotfiles_git_url: "https://github.com/thesammykins/dotfiles.git"
+    brewfile_git_url: "https://github.com/thesammykins/brewfile.git"
+    
+    # Expected files in repositories
+    expected_dotfiles:
+      - .zshrc
+      - .bashrc
+      - .vimrc
+      - .gitconfig
+    
+    expected_brewfiles:
+      - Brewfile
+      - README.md
+
+    # Logging configuration
+    log_file: "logs/repo_setup_{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}.log"
+
+  tasks:
+    - name: Create logs directory if it doesn't exist
+      file:
+        path: "logs"
+        state: directory
+        mode: '0755'
+      register: log_dir_creation
+      changed_when: log_dir_creation.changed
+      
+    - name: Initialize log file with header
+      copy:
+        dest: "{{ log_file }}"
+        content: |
+          ====================================
+          Repository Setup Log
+          Started: {{ ansible_date_time.iso8601 }}
+          User: {{ ansible_user_id }}
+          Hostname: {{ ansible_hostname }}
+          ====================================
+          
+        mode: '0644'
+      register: log_init
+
+    - name: Ensure temp directory exists for repository cloning
+      file:
+        path: "{{ temp_dir }}"
+        state: directory
+        mode: '0755'
+      register: temp_dir_creation
+      changed_when: temp_dir_creation.changed
+
+    - name: Log temp directory creation
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | TEMP DIR | Created: {{ temp_dir }} | Status: {{ 'Created' if temp_dir_creation.changed else 'Already exists' }}"
+      changed_when: false
+
+    # DOTFILES REPOSITORY SETUP
+    - name: Check if dotfiles repository exists
+      stat:
+        path: "{{ dotfiles_repo }}"
+      register: dotfiles_stat
+
+    - name: Log dotfiles repository check
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | DOTFILES | Checked: {{ dotfiles_repo }} | Exists: {{ dotfiles_stat.stat.exists }}"
+      changed_when: false
+
+    - name: Clone dotfiles repository
+      git:
+        repo: "{{ dotfiles_git_url }}"
+        dest: "{{ dotfiles_repo }}"
+        version: main
+        clone: yes
+        update: yes
+      register: dotfiles_clone
+      when: not dotfiles_stat.stat.exists
+      
+    - name: Log dotfiles repository clone
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | DOTFILES | Cloned: {{ dotfiles_git_url }} | Status: {{ 'Success' if dotfiles_clone.changed else 'Not required' }}"
+      changed_when: false
+
+    # BREWFILE REPOSITORY SETUP
+    - name: Check if brewfile repository exists
+      stat:
+        path: "{{ brewfile_repo }}"
+      register: brewfile_stat
+
+    - name: Log brewfile repository check
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | BREWFILE | Checked: {{ brewfile_repo }} | Exists: {{ brewfile_stat.stat.exists }}"
+      changed_when: false
+
+    - name: Clone brewfile repository
+      git:
+        repo: "{{ brewfile_git_url }}"
+        dest: "{{ brewfile_repo }}"
+        version: main
+        clone: yes
+        update: yes
+      register: brewfile_clone
+      when: not brewfile_stat.stat.exists
+      
+    - name: Log brewfile repository clone
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | BREWFILE | Cloned: {{ brewfile_git_url }} | Status: {{ 'Success' if brewfile_clone.changed else 'Not required' }}"
+      changed_when: false
+
+    # VALIDATE REPOSITORY CONTENTS
+    - name: Check dotfiles in repository
+      stat:
+        path: "{{ dotfiles_repo }}/{{ item }}"
+      register: dotfile_check
+      with_items: "{{ expected_dotfiles }}"
+      changed_when: false
+      
+    - name: Log dotfile check results
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | DOTFILES | File: {{ item.item }} | Exists: {{ item.stat.exists | default(false) }}"
+      with_items: "{{ dotfile_check.results }}"
+      changed_when: false
+
+    - name: Check brewfiles in repository
+      stat:
+        path: "{{ brewfile_repo }}/{{ item }}"
+      register: brewfile_check
+      with_items: "{{ expected_brewfiles }}"
+      changed_when: false
+      
+    - name: Log brewfile check results
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | BREWFILE | File: {{ item.item }} | Exists: {{ item.stat.exists | default(false) }}"
+      with_items: "{{ brewfile_check.results }}"
+      changed_when: false
+
+    # REPOSITORY STATUS SUMMARY
+    - name: Generate repository status summary
+      set_fact:
+        dotfiles_summary: "{{ dotfile_check.results | selectattr('stat.exists', 'defined') | selectattr('stat.exists') | map(attribute='item') | list }}"
+        missing_dotfiles: "{{ dotfile_check.results | selectattr('stat.exists', 'undefined') | map(attribute='item') | list + dotfile_check.results | selectattr('stat.exists', 'defined') | rejectattr('stat.exists') | map(attribute='item') | list }}"
+        brewfiles_summary: "{{ brewfile_check.results | selectattr('stat.exists', 'defined') | selectattr('stat.exists') | map(attribute='item') | list }}"
+        missing_brewfiles: "{{ brewfile_check.results | selectattr('stat.exists', 'undefined') | map(attribute='item') | list + brewfile_check.results | selectattr('stat.exists', 'defined') | rejectattr('stat.exists') | map(attribute='item') | list }}"
+      changed_when: false
+        
+    - name: Write summary to log
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | SUMMARY | Dotfiles found: {{ dotfiles_summary | join(', ') }} | Missing: {{ missing_dotfiles | join(', ') }}"
+      changed_when: false
+        
+    - name: Write brewfile summary to log
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ ansible_date_time.iso8601 }} | SUMMARY | Brewfiles found: {{ brewfiles_summary | join(', ') }} | Missing: {{ missing_brewfiles | join(', ') }}"
+      changed_when: false
+
+    # OUTPUT RESULTS
+    - name: Display repository status
+      debug:
+        msg: 
+          - "Repository Setup Complete"
+          - "Dotfiles Found: {{ dotfiles_summary | join(', ') }}"
+          - "Missing Dotfiles: {{ missing_dotfiles | join(', ') }}"
+          - "Brewfiles Found: {{ brewfiles_summary | join(', ') }}"
+          - "Missing Brewfiles: {{ missing_brewfiles | join(', ') }}"
+          - "Log file: {{ log_file }}"
+          
+    - name: Append completion timestamp to log
+      lineinfile:
+        path: "{{ log_file }}"
+        line: |
+          ====================================
+          Repository Setup Completed: {{ ansible_date_time.iso8601 }}
+          ====================================
+      changed_when: false
+

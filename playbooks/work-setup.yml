@@ -5,54 +5,302 @@
   gather_facts: yes
 
   vars:
+    # Base directories and repos
     temp_dir: "/tmp/mac-setup"
     dotfiles_repo: "{{ temp_dir }}/dotfiles"
     brewfile_repo: "{{ temp_dir }}/brewfile"
-
-  tasks:
-    - name: Ensure .config directory exists
+    user_home: "{{ ansible_env.HOME }}"
+    
+    # Git repository URLs
+    dotfiles_git_url: "https://github.com/thesammykins/dotfiles.git"
+    brewfile_git_url: "https://github.com/thesammykins/brewfile.git"
+    
+    # File paths
+    brewfile_path: "{{ brewfile_repo }}/brewfile"
+    backup_dir: "{{ user_home }}/.config/backups/{{ ansible_date_time.date }}"
+    
+    # Logging configuration
+    log_timestamp: "{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}"
+    setup_context: "work"
+  pre_tasks:
+    - name: Create logging directory
       file:
-        path: "{{ ansible_env.HOME }}/.config"
+        path: "./logs/{{ setup_context }}"
         state: directory
         mode: '0755'
+      register: log_dir_creation
+      changed_when: log_dir_creation.changed
+      failed_when: log_dir_creation.failed
+    
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+      register: backup_dir_creation
 
-    - name: Copy dotfiles
-      copy:
-        src: "{{ dotfiles_repo }}/{{ item }}"
-        dest: "{{ ansible_env.HOME }}/{{ item }}"
-        mode: '0644'
+    - name: Validate repository setup
+      include_tasks: setup-repos.yml
+      vars:
+        validate_only: true
+      when: false  # Comment this line to enable validation
+      
+  tasks:
+    - name: Ensure .config directory exists for user dotfiles
+      file:
+        path: "{{ user_home }}/.config"
+        state: directory
+        mode: '0755'
+      register: config_dir_result
+      changed_when: config_dir_result.changed
+      failed_when: config_dir_result.failed
+
+    - name: Check if dotfiles exist in repository
+      stat:
+        path: "{{ dotfiles_repo }}/{{ item }}"
+      register: dotfile_status
       with_items:
         - .zshrc
         - .bashrc
+      changed_when: false
+
+    - name: Check for existing dotfiles in home directory
+      stat:
+        path: "{{ user_home }}/{{ item }}"
+      register: existing_dotfiles
+      with_items:
+        - .zshrc
+        - .bashrc
+      changed_when: false
+
+    - name: Log missing dotfiles
+      debug:
+        msg: "Dotfile {{ item.item }} not found in {{ dotfiles_repo }}"
+      when: not item.stat.exists
+      with_items: "{{ dotfile_status.results }}"
+      changed_when: false
+
+    - name: Backup existing dotfiles before replacing
+      copy:
+        src: "{{ user_home }}/{{ item.0.item }}"
+        dest: "{{ backup_dir }}/{{ item.0.item }}.bak.{{ ansible_date_time.epoch }}"
+        mode: '0644'
+        remote_src: yes
+      when: 
+        - item.0.stat.exists  # Source file exists in repo
+        - item.1.stat.exists  # Target file exists in home
+      with_together:
+        - "{{ dotfile_status.results }}"
+        - "{{ existing_dotfiles.results }}"
+      register: dotfiles_backup
+      changed_when: dotfiles_backup.changed
+      ignore_errors: yes
+
+    - name: Copy dotfiles that exist
+      copy:
+        src: "{{ dotfiles_repo }}/{{ item.item }}"
+        dest: "{{ user_home }}/{{ item.item }}"
+        mode: '0644'
+        owner: "{{ ansible_user_id }}"
+        backup: yes
+      register: dotfiles_copied
+      when: item.stat.exists
+      with_items: "{{ dotfile_status.results }}"
+      changed_when: dotfiles_copied.changed
+      notify:
+        - Reload shell configuration
+
+    - name: Check if Brewfile exists
+      stat:
+        path: "{{ brewfile_path }}"
+      register: brewfile_stat
+      failed_when: false
 
     - name: Install Homebrew packages from Brewfile
-      command: brew bundle --file={{ brewfile_repo }}/Brewfile
+      command: brew bundle --file={{ brewfile_path }}
       register: brew_result
       changed_when: brew_result.rc == 0
-      failed_when: brew_result.rc != 0 and brew_result.rc != 1
-
+      failed_when: brew_result.rc != 0 and brew_result.rc != 1 and not ansible_check_mode
+      ignore_errors: "{{ ansible_check_mode }}"
+      when: brewfile_stat.stat.exists
     - name: Configure system preferences
       command: "{{ item }}"
       with_items:
         # Dock settings
         - defaults write com.apple.dock autohide -bool true
         - defaults write com.apple.dock show-recents -bool false
-        - defaults write com.apple.dock tilesize -int 36
+        - defaults write com.apple.dock magnification -bool true
+        - defaults write com.apple.dock largesize -int 83
+        - defaults write com.apple.dock tilesize -int 52
+        - defaults write com.apple.dock show-process-indicators -bool true
+        - defaults write com.apple.dock minimize-to-application -bool false
         
         # Finder settings
+        - defaults write com.apple.finder AppleShowAllFiles -bool true
         - defaults write com.apple.finder ShowPathbar -bool true
         - defaults write com.apple.finder ShowStatusBar -bool true
         - defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+        - defaults write com.apple.finder ShowExternalHardDrivesOnDesktop -bool true
+        - defaults write com.apple.finder ShowHardDrivesOnDesktop -bool true
+        - defaults write com.apple.finder ShowMountedServersOnDesktop -bool true
+        - defaults write com.apple.finder ShowRemovableMediaOnDesktop -bool true
+        - defaults write com.apple.finder SidebarWidth -int 252
         
         # System settings
         - defaults write NSGlobalDomain AppleShowAllExtensions -bool true
         - defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+        - defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool true
+        - defaults write NSGlobalDomain NSAutomaticPeriodSubstitutionEnabled -bool true
+        - defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+        - defaults write NSGlobalDomain AppleInterfaceStyle -string "Dark"
+        
+        # Mouse and trackpad settings
+        - defaults write com.apple.mouse.tapBehavior -int 1
+        - defaults write com.apple.trackpad.forceClick -bool true
+        - defaults write com.apple.trackpad.scaling -float 1.5
+        
+        # Spring loading settings (for folders)
+        - defaults write NSGlobalDomain com.apple.springing.enabled -bool true
+        - defaults write NSGlobalDomain com.apple.springing.delay -float 0.5
+        
+        # Sound settings
+        - defaults write com.apple.sound.beep.flash -bool false
       notify: Restart affected apps
+      ignore_errors: yes
+
+    - name: Configure hot corners
+      command: "{{ item }}"
+      with_items:
+        # Bottom right corner - Quick Note
+        - defaults write com.apple.dock wvous-br-corner -int 14
+        - defaults write com.apple.dock wvous-br-modifier -int 0
+      notify: Restart affected apps
+      ignore_errors: yes
+
+    - name: Configure Finder view settings
+      command: "{{ item }}"
+      with_items:
+        # List view settings
+        - defaults write com.apple.finder FXPreferredViewStyle -string "Nlsv"
+        - defaults write com.apple.finder StandardViewSettings -dict-add "IconViewSettings" '{"arrangeBy":"none","backgroundColorBlue":1,"backgroundColorGreen":1,"backgroundColorRed":1,"backgroundType":0,"gridOffsetX":0,"gridOffsetY":0,"gridSpacing":54,"iconSize":64,"labelOnBottom":1,"showIconPreview":1,"showItemInfo":0,"textSize":12,"viewOptionsVersion":1}'
+        - defaults write com.apple.finder StandardViewSettings -dict-add "ListViewSettings" '{"calculateAllSizes":0,"columns":{"comments":{"ascending":1,"index":7,"visible":0,"width":300},"dateCreated":{"ascending":0,"index":2,"visible":0,"width":181},"dateLastOpened":{"ascending":0,"index":8,"visible":0,"width":200},"dateModified":{"ascending":0,"index":1,"visible":1,"width":181},"kind":{"ascending":1,"index":4,"visible":1,"width":115},"label":{"ascending":1,"index":5,"visible":0,"width":100},"name":{"ascending":1,"index":0,"visible":1,"width":300},"size":{"ascending":0,"index":3,"visible":1,"width":97},"version":{"ascending":1,"index":6,"visible":0,"width":75}},"iconSize":16,"showIconPreview":1,"sortColumn":"name","textSize":13,"useRelativeDates":1,"viewOptionsVersion":1}'
+        
+        # Window settings
+        - defaults write com.apple.finder "NSWindow Frame NSNavPanelAutosaveName" -string "624 643 800 363 0 0 2048 1281 "
+        - defaults write com.apple.finder NewWindowTarget -string "PfDe"
+        - defaults write com.apple.finder NewWindowTargetPath -string "file://{{ user_home }}/Desktop/"
+      notify: Restart affected apps
+      ignore_errors: yes
+
+    - name: Configure language and region settings
+      command: "{{ item }}"
+      with_items:
+        - defaults write NSGlobalDomain AppleLanguages -array "en-AU"
+        - defaults write NSGlobalDomain AppleLocale -string "en_AU"
+        - defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool true
+      notify: Restart affected apps
+      ignore_errors: yes
+
+    - name: Configure dock apps
+      command: "{{ item }}"
+      with_items:
+        # Remove all persistent apps first
+        - defaults write com.apple.dock persistent-apps -array
+        
+        # Add work-essential apps (only if they exist)
+        - |
+          test -e "/Applications/Arc.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Arc.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/Notion Calendar.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Notion%20Calendar.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/Slack.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Slack.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/Microsoft Teams.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Microsoft%20Teams.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/Visual Studio Code.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Visual%20Studio%20Code.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/Warp.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/Warp.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+        - |
+          test -e "/Applications/1Password.app" && defaults write com.apple.dock persistent-apps -array-add '<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>file:///Applications/1Password.app/</string><key>_CFURLStringType</key><integer>15</integer></dict></dict></dict>'
+      notify: Restart affected apps
+      ignore_errors: yes
+
+    - name: Configure dock folders
+      command: "{{ item }}"
+      with_items:
+        # Add persistent folders to dock
+        - defaults write com.apple.dock persistent-others -array
+        - |
+          defaults write com.apple.dock persistent-others -array-add '
+          <dict>
+              <key>tile-data</key>
+              <dict>
+                  <key>arrangement</key>
+                  <integer>1</integer>
+                  <key>displayas</key>
+                  <integer>1</integer>
+                  <key>file-data</key>
+                  <dict>
+                      <key>_CFURLString</key>
+                      <string>file:///Applications/</string>
+                      <key>_CFURLStringType</key>
+                      <integer>15</integer>
+                  </dict>
+                  <key>showas</key>
+                  <integer>1</integer>
+              </dict>
+              <key>tile-type</key>
+              <string>directory-tile</string>
+          </dict>'
+        - |
+          defaults write com.apple.dock persistent-others -array-add '
+          <dict>
+              <key>tile-data</key>
+              <dict>
+                  <key>arrangement</key>
+                  <integer>2</integer>
+                  <key>displayas</key>
+                  <integer>1</integer>
+                  <key>file-data</key>
+                  <dict>
+                      <key>_CFURLString</key>
+                      <string>file://{{ user_home }}/Downloads/</string>
+                      <key>_CFURLStringType</key>
+                      <integer>15</integer>
+                  </dict>
+                  <key>showas</key>
+                  <integer>1</integer>
+              </dict>
+              <key>tile-type</key>
+              <string>directory-tile</string>
+          </dict>'
+      notify: Restart affected apps
+      ignore_errors: yes
 
   handlers:
     - name: Restart affected apps
       command: "{{ item }}"
       with_items:
-        - killall Dock
-        - killall Finder
+        - killall Dock || true
+        - killall Finder || true
+        - killall SystemUIServer || true
+      ignore_errors: true
+      
+    - name: Reload shell configuration
+      shell: "{{ item }}"
+      with_items:
+        - source {{ user_home }}/.zshrc || true
+        - source {{ user_home }}/.bashrc || true
+      ignore_errors: true
+      
+    - name: Log configuration changes
+      lineinfile:
+        path: "./logs/{{ setup_context }}/changes_{{ log_timestamp }}.log"
+        line: "{{ ansible_date_time.iso8601 }} | {{ item }}"
+        create: yes
+        mode: '0644'
+      with_items:
+        - "Dotfiles copied: {{ dotfiles_copied.results | selectattr('changed') | map(attribute='item.item') | list | join(', ') }}"
+        - "Homebrew packages installed from: {{ brewfile_path if brewfile_stat.stat.exists else 'No Brewfile available' }}"
+      ignore_errors: true
 
