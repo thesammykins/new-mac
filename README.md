@@ -1,79 +1,75 @@
-# New Mac Setup Script
+# New Mac
 
-This repository contains scripts and playbooks to automate the setup of a new Mac device. It supports different configuration types including personal and work setups.
+Agentic setup for Samantha's Macs. This repo is the first repo to clone on a new machine; it bootstraps the minimum tools, then delegates the rest to `mise` tasks and profile-driven installers.
 
-## Prerequisites
+## Operating Model
 
-- A fresh installation of macOS
-- Administrative access to the device
-- Internet connection
+1. Install the minimum host tools: Xcode Command Line Tools, Homebrew, Git, and `mise`.
+2. Clone this repo into `$HOME/Development/new-mac`.
+3. Trust and install the repo's `mise` config.
+4. Run a dry-run plan.
+5. Apply a selected profile.
 
-## Features
+```bash
+git clone https://github.com/thesammykins/new-mac.git "$HOME/Development/new-mac"
+cd "$HOME/Development/new-mac"
+./setup.sh --profile personal --dry-run
+./setup.sh --profile personal --yes
+```
 
-- Automated installation of Homebrew
-- Configurable setup types:
-  - Work device configuration
-  - Personal device configuration
-- Automatic installation of:
-  - Dotfiles from [thesammykins/dotfiles](https://github.com/thesammykins/dotfiles)
-  - Work-related applications from [thesammykins/brewfile](https://github.com/thesammykins/brewfile)
-  - Personal applications from [thesammykins/brewfile-per](https://github.com/thesammykins/brewfile-per)
-- System preferences configuration
+You can also point Codex or OpenCode at this repo and ask it to run the same tasks. The repo-local `AGENTS.md` defines the expected agent behavior.
 
-## Getting Started
+## Profiles
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/thesammykins/new-mac.git
-   cd new-mac
-   ```
+- `minimal`: base Homebrew/dotfiles only.
+- `personal`: personal workstation baseline.
+- `work`: work-safe developer baseline without personal workstation apps by default.
+- `agent-dev`: full agent development baseline with skills and Codex plugins.
 
-2. Make the setup script executable:
-   ```bash
-   chmod +x setup.sh
-   ```
+Common flags:
 
-3. Run the setup script:
-   ```bash
-   ./setup.sh
-   ```
+```bash
+mise run plan -- --profile personal --dry-run
+mise run apply -- --profile agent-dev --with defaults --yes
+mise run apply -- --profile work --skip defaults,mas --yes
+```
 
-4. Follow the prompts to select your desired configuration type:
-   - Work device setup
-   - Personal device setup
+Supported flags:
 
-## What Gets Installed
+- `--profile personal|work|minimal|agent-dev`
+- `--mode interactive|assume-defaults|ci`
+- `--with brew,mas,dotfiles,skills,codex-stuff,codex,opencode,defaults`
+- `--skip brew,mas,dotfiles,skills,plugins,defaults`
+- `--dry-run`
+- `--yes`
+- `--dev-root PATH`
 
-### Work Device Setup
-- All dotfiles from thesammykins/dotfiles
-- Applications and tools from thesammykins/brewfile
-- Standard work system preferences
+`plugins` is accepted as an alias for `codex-stuff`.
+Codex and OpenCode are installed by the developer Brewfile in normal profiles; use `--with codex` or `--with opencode` only for focused installs outside the bundle path.
 
-### Personal Device Setup
-- All dotfiles from thesammykins/dotfiles
-- Applications and tools from thesammykins/brewfile-per
-- Personal system preferences
+## Repo Boundaries
 
-## Post-Installation
+- `thesammykins/new-mac`: orchestration, profiles, host inspection, and setup tasks.
+- `thesammykins/dotfiles`: shell/app config, Brewfile tiers, `mise` global config, and shared agent rules.
+- `thesammykins/skills`: custom skills plus a manifest of upstream skill sources.
+- `thesammykins/codex-stuff`: Codex plugin marketplace.
+- `thesammykins/brewfile`: legacy; no longer used by this setup path.
 
-After the script completes:
-1. Restart your Mac to ensure all changes take effect
-2. Check that all applications were installed correctly
-3. Verify system preferences were applied
+## Tasks
 
-## Troubleshooting
+```bash
+mise run doctor
+mise run plan -- --profile personal --dry-run
+mise run apply -- --profile personal --yes
+mise run install-brew -- --profile personal --dry-run
+mise run install-dotfiles -- --profile personal --dry-run
+mise run install-skills -- --profile agent-dev --dry-run
+mise run install-plugins -- --profile agent-dev --dry-run
+mise run check
+```
 
-If you encounter any issues during installation:
-1. Check your internet connection
-2. Ensure you have administrative privileges
-3. Review the logs in the terminal output
-4. Create an issue in this repository if the problem persists
+## Fresh Mac Notes
 
-## Contributing
+`mise` requires trusted config files before it runs repo tasks. `setup.sh` runs `mise trust` for this repo after installing `mise`.
 
-Feel free to submit issues and enhancement requests!
-
-## License
-
-[MIT License](LICENSE)
-
+macOS defaults and Dock changes are never applied unless the selected profile includes them or `--with defaults` is passed explicitly.

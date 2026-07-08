@@ -1,0 +1,23 @@
+dev_root = "~/Development"
+default_mode = "interactive"
+default_components = ["agents", "brew", "dotfiles"]
+brewfiles = ["Brewfile"]
+skill_profiles = ["core"]
+codex_plugins = ["local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher"]
+
+[repos]
+dotfiles = "https://github.com/thesammykins/dotfiles.git"
+skills = "https://github.com/thesammykins/skills.git"
+codex-stuff = "https://github.com/thesammykins/codex-stuff.git"
+
+[paths]
+dotfiles = "dotfiles"
+skills = "skills"
+codex-stuff = "codex-stuff"
+
+[dotfiles_env]
+DOTFILES_LINK_MODE = "migrate"
+DOTFILES_INSTALL_DEV = "0"
+DOTFILES_INSTALL_WORKSTATION = "0"
+DOTFILES_APPLY_MACOS_DEFAULTS = "0"
+DOTFILES_APPLY_DOCK = "0"

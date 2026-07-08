@@ -1,0 +1,8 @@
+default_components = ["agents", "brew", "dotfiles", "skills", "codex-stuff"]
+brewfiles = ["Brewfile", "Brewfile.dev", "Brewfile.workstation"]
+skill_profiles = ["core", "apple", "agent-dev"]
+codex_plugins = ["local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]
+
+[dotfiles_env]
+DOTFILES_INSTALL_DEV = "1"
+DOTFILES_INSTALL_WORKSTATION = "1"

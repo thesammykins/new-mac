@@ -1,0 +1,38 @@
+[tools]
+python = "3.13.12"
+
+[tasks.doctor]
+description = "Inspect host prerequisites and expected repo locations."
+run = "python3 scripts/new_mac.py doctor \"$@\""
+
+[tasks.plan]
+description = "Render the selected setup plan without applying changes."
+run = "python3 scripts/new_mac.py plan \"$@\""
+
+[tasks.apply]
+description = "Apply the selected setup profile."
+run = "python3 scripts/new_mac.py apply \"$@\""
+
+[tasks.install-brew]
+description = "Install Homebrew bundles for the selected profile."
+run = "python3 scripts/new_mac.py install-brew \"$@\""
+
+[tasks.install-dotfiles]
+description = "Clone/update dotfiles and run its installer."
+run = "python3 scripts/new_mac.py install-dotfiles \"$@\""
+
+[tasks.install-agents]
+description = "Create expected agent directories."
+run = "python3 scripts/new_mac.py install-agents \"$@\""
+
+[tasks.install-skills]
+description = "Install custom and upstream skills from thesammykins/skills."
+run = "python3 scripts/new_mac.py install-skills \"$@\""
+
+[tasks.install-plugins]
+description = "Install the Codex plugin marketplace and selected plugins."
+run = "python3 scripts/new_mac.py install-plugins \"$@\""
+
+[tasks.check]
+description = "Validate profile syntax and scripts."
+run = "python3 scripts/new_mac.py check \"$@\""
