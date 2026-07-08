@@ -88,7 +88,6 @@ def install_dotfiles(ctx: Context, runner: Runner) -> None:
     env["DOTFILES_ROOT"] = str(dotfiles)
     env["DOTFILES_DRY_RUN"] = "1" if ctx.dry_run else env.get("DOTFILES_DRY_RUN", "0")
     env["DOTFILES_INSTALL_BREW"] = "0"
-    env["DOTFILES_INSTALL_MCRN_AI_DEPS"] = "1" if "brew" in ctx.components else "0"
     if "defaults" in ctx.components:
         env["DOTFILES_APPLY_MACOS_DEFAULTS"] = "1"
     runner.run(["bash", str(dotfiles / "scripts/install.sh")], env=env)
