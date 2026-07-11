@@ -148,7 +148,7 @@ def main() -> None:
     attestation = {
         "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source_agents": str(AGENTS_SOURCE),
-        "source_agents_link": os.readlink(AGENTS),
+        "source_agents_link": os.readlink(AGENTS) if AGENTS.is_symlink() else None,
         "archives": archive_hashes,
         "skill_directories": len(skills),
         "exclusions_file": "EXCLUSIONS.txt",

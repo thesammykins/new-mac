@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -82,24 +83,38 @@ def install_brew(ctx: Context, runner: Runner) -> None:
 
 def install_dotfiles(ctx: Context, runner: Runner) -> None:
     dotfiles = ensure_repo(ctx, runner, "dotfiles")
+    status_file = Path.home() / ".cache/new-mac/dotfiles-status.json"
+    if not ctx.dry_run:
+        status_file.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.update({key: str(value) for key, value in ctx.config.get("dotfiles_env", {}).items()})
     env["DOTFILES_WORKTREE"] = str(dotfiles)
     env["DOTFILES_ROOT"] = str(dotfiles)
     env["DOTFILES_DRY_RUN"] = "1" if ctx.dry_run else env.get("DOTFILES_DRY_RUN", "0")
     env["DOTFILES_INSTALL_BREW"] = "0"
+    env["DOTFILES_STATUS_FILE"] = str(status_file)
     if "defaults" in ctx.components:
         env["DOTFILES_APPLY_MACOS_DEFAULTS"] = "1"
     runner.run(["bash", str(dotfiles / "scripts/install.sh")], env=env)
+    if not ctx.dry_run and status_file.is_file():
+        payload = json.loads(status_file.read_text(encoding="utf-8"))
+        counts = ", ".join(f"{key}={len(payload[key])}" for key in ("linked", "installed", "skipped", "outdated", "failed"))
+        print(f"Dotfiles status: {payload['result']} ({counts})")
 
 
 def install_skills(ctx: Context, runner: Runner) -> None:
     skills = ensure_repo(ctx, runner, "skills")
-    profiles = ",".join(ctx.config.get("skill_profiles", []))
-    command = ["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "--profile", profiles]
+    command = ["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py")]
     if ctx.dry_run:
         command.append("--dry-run")
     runner.run(command)
+
+
+def verify_skills(ctx: Context, runner: Runner) -> None:
+    skills = repo_path(ctx, "skills")
+    if not (skills / ".git").exists() and not ctx.dry_run:
+        raise SystemExit(f"Skills checkout is missing: {skills}")
+    runner.run(["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "--verify"])
 
 
 def install_plugins(ctx: Context, runner: Runner) -> None:
@@ -130,6 +145,53 @@ def apply(ctx: Context) -> None:
         install_skills(ctx, runner)
     if "codex-stuff" in ctx.components:
         install_plugins(ctx, runner)
+
+
+def newest_verified_snapshot(root: Path | None = None) -> Path:
+    snapshot_root = root or Path.home() / "Backups/agent-environment"
+    snapshots = sorted(
+        (path for path in snapshot_root.glob("*") if path.is_dir() and (path / "VERIFIED").is_file()),
+        reverse=True,
+    )
+    if not snapshots:
+        raise SystemExit("snapshot command completed without producing a verified snapshot")
+    return snapshots[0]
+
+
+def smart_update(ctx: Context) -> None:
+    runner = Runner(ctx.dry_run)
+    runner.run(["mise", "exec", "--", "python", str(REPO_ROOT / "scripts/snapshot_agent_environment.py")])
+    if ctx.dry_run:
+        print("[dry-run] snapshot verification, safe apply, and doctor would follow")
+        return
+    snapshot = newest_verified_snapshot()
+    runner.run(
+        ["mise", "exec", "--", "python", str(REPO_ROOT / "scripts/agent_environment.py"), "verify-snapshot", str(snapshot)]
+    )
+    apply(replace(ctx, yes=True))
+    doctor(ctx)
+    print(f"Smart Update complete. Verified rollback snapshot: {snapshot}")
+
+
+def verify_repair(ctx: Context) -> None:
+    check(ctx)
+    smart_update(ctx)
+    verify_skills(ctx, Runner(ctx.dry_run))
+
+
+def audit(ctx: Context) -> None:
+    check(ctx)
+    runner = Runner(ctx.dry_run)
+    checks = (
+        (repo_path(ctx, "skills"), ["mise", "run", "check"]),
+        (repo_path(ctx, "dotfiles"), ["mise", "run", "check"]),
+        (repo_path(ctx, "dotfiles"), ["mise", "run", "audit"]),
+    )
+    for cwd, command in checks:
+        if not cwd.is_dir() and not ctx.dry_run:
+            raise SystemExit(f"Required checkout is missing: {cwd}")
+        runner.run(command, cwd=cwd)
+    print("Repository audit complete.")
 
 
 def doctor(ctx: Context) -> None:

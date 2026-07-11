@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+from pathlib import Path
 
 from new_mac_actions import (
     apply,
+    audit,
     check,
     doctor,
     install_agents,
@@ -13,8 +15,12 @@ from new_mac_actions import (
     install_dotfiles,
     install_plugins,
     install_skills,
+    smart_update,
+    verify_repair,
+    verify_skills,
 )
 from new_mac_core import Runner, available_profiles, build_context, print_plan
+from agent_environment import restore_snapshot, verify_snapshot
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,13 +47,30 @@ def build_parser() -> argparse.ArgumentParser:
         "install-skills",
         "install-plugins",
         "check",
+        "smart-update",
+        "verify-repair",
+        "verify-skills",
+        "audit",
     ):
         add_common_flags(subparsers.add_parser(name))
+    verify = subparsers.add_parser("verify-snapshot")
+    verify.add_argument("snapshot")
+    restore = subparsers.add_parser("restore-snapshot")
+    restore.add_argument("snapshot")
+    restore.add_argument("--yes", action="store_true")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.command == "verify-snapshot":
+        verify_snapshot(Path(args.snapshot).expanduser().resolve())
+        return
+    if args.command == "restore-snapshot":
+        if not args.yes:
+            raise SystemExit("restore-snapshot requires --yes")
+        restore_snapshot(Path(args.snapshot).expanduser().resolve())
+        return
     forced = {
         "install-brew": ["brew"],
         "install-dotfiles": ["dotfiles"],
@@ -76,6 +99,14 @@ def main() -> None:
             install_plugins(ctx, Runner(ctx.dry_run))
         case "check":
             check(ctx)
+        case "smart-update":
+            smart_update(ctx)
+        case "verify-repair":
+            verify_repair(ctx)
+        case "verify-skills":
+            verify_skills(ctx, Runner(ctx.dry_run))
+        case "audit":
+            audit(ctx)
         case _:
             raise SystemExit(f"Unknown command: {args.command}")
 
@@ -85,4 +116,3 @@ if __name__ == "__main__":
         main()
     except subprocess.CalledProcessError as error:
         raise SystemExit(error.returncode) from error
-

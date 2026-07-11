@@ -6,8 +6,8 @@ This repo is the root setup orchestrator for Samantha's Macs. Keep it small, pro
 
 ## Operating Rules
 
-- Use `mise` tasks as the public interface. Prefer `mise run doctor`, `mise run plan`, `mise run apply`, and the focused install tasks over ad hoc commands.
-- Start with `mise run doctor` and a dry-run plan before applying changes.
+- Use `./setup.sh` as the human-facing interface. Keep `mise run setup`, `mise run check`, and `mise run audit` as the small public task surface.
+- Keep direct commands available for automation and recovery without exposing their flags in the primary README.
 - Respect profile flags. Ask questions only when the selected profile and mode cannot determine a safe default.
 - Keep repo boundaries clear:
   - `new-mac` orchestrates.
@@ -21,12 +21,10 @@ This repo is the root setup orchestrator for Samantha's Macs. Keep it small, pro
 ## Expected Flow
 
 ```bash
-mise run doctor
-mise run plan -- --profile personal --dry-run
-mise run apply -- --profile personal --yes
+./setup.sh
 ```
 
-For unattended setup, use `--mode assume-defaults --yes`. For validation-only automation, use `--mode ci`.
+For unattended setup and validation-only automation, use the retained direct Python command interface.
 
 ## Validation
 
@@ -37,4 +35,3 @@ python3 scripts/new_mac.py check
 python3 scripts/new_mac.py plan --profile personal --dry-run
 python3 scripts/new_mac.py plan --profile agent-dev --dry-run
 ```
-

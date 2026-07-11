@@ -1,6 +1,5 @@
 default_components = ["agents", "brew", "dotfiles", "skills", "codex-stuff"]
 brewfiles = ["Brewfile", "Brewfile.dev", "Brewfile.workstation"]
-skill_profiles = ["core", "apple", "agent-dev"]
 codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]
 
 [dotfiles_env]

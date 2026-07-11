@@ -2,7 +2,6 @@ dev_root = "~/Development"
 default_mode = "interactive"
 default_components = ["agents", "brew", "dotfiles"]
 brewfiles = ["Brewfile"]
-skill_profiles = ["core"]
 codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]
 
 [repos]

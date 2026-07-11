@@ -164,7 +164,6 @@ def plan_document(ctx: Context) -> dict[str, Any]:
         "dev_root": str(ctx.dev_root),
         "components": ctx.components,
         "brewfiles": ctx.config.get("brewfiles", []),
-        "skill_profiles": ctx.config.get("skill_profiles", []),
         "codex_plugins": ctx.config.get("codex_plugins", []),
         "repos": repos,
     }
@@ -182,7 +181,7 @@ def print_plan(ctx: Context) -> None:
     print(f"Dev root: {plan['dev_root']}")
     print("Components: " + ", ".join(plan["components"]))
     print("Brewfiles: " + ", ".join(plan["brewfiles"]))
-    print("Skill profiles: " + ", ".join(plan["skill_profiles"]))
+    print("Skills: complete desired inventory")
     print("Codex plugins: " + ", ".join(plan["codex_plugins"]))
     print("")
     print("Repos:")

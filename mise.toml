@@ -2,34 +2,42 @@
 python = "3.13.12"
 
 [tasks.doctor]
+hide = true
 description = "Inspect host prerequisites and expected repo locations."
 run = "python3 scripts/new_mac.py doctor \"$@\""
 
 [tasks.plan]
+hide = true
 description = "Render the selected setup plan without applying changes."
 run = "python3 scripts/new_mac.py plan \"$@\""
 
 [tasks.apply]
+hide = true
 description = "Apply the selected setup profile."
 run = "python3 scripts/new_mac.py apply \"$@\""
 
 [tasks.install-brew]
+hide = true
 description = "Install Homebrew bundles for the selected profile."
 run = "python3 scripts/new_mac.py install-brew \"$@\""
 
 [tasks.install-dotfiles]
+hide = true
 description = "Clone/update dotfiles and run its installer."
 run = "python3 scripts/new_mac.py install-dotfiles \"$@\""
 
 [tasks.install-agents]
+hide = true
 description = "Create expected agent directories."
 run = "python3 scripts/new_mac.py install-agents \"$@\""
 
 [tasks.install-skills]
+hide = true
 description = "Install custom and upstream skills from thesammykins/skills."
 run = "python3 scripts/new_mac.py install-skills \"$@\""
 
 [tasks.install-plugins]
+hide = true
 description = "Install the Codex plugin marketplace and selected plugins."
 run = "python3 scripts/new_mac.py install-plugins \"$@\""
 
@@ -37,26 +45,55 @@ run = "python3 scripts/new_mac.py install-plugins \"$@\""
 description = "Validate profile syntax and scripts."
 run = "python3 scripts/new_mac.py check \"$@\" && python3 -m unittest discover -s tests -v"
 
+[tasks.setup]
+description = "Open the guided Mac setup and maintenance menu."
+run = "python3 scripts/setup_tui.py"
+
+[tasks.audit]
+description = "Run repository and workstation audits without changing setup state."
+run = "python3 scripts/new_mac.py audit \"$@\""
+
 [tasks.snapshot]
+hide = true
 description = "Create and attest a two-tier backup of the live agent environment."
 run = "python3 scripts/snapshot_agent_environment.py \"$@\""
 
 [tasks.verify-snapshot]
+hide = true
 description = "Verify an attested agent-environment snapshot."
 run = "python3 scripts/agent_environment.py verify-snapshot \"$@\""
 
 [tasks.stage-agents]
+hide = true
 description = "Build and verify a parallel ~/.agents candidate from a snapshot."
 run = "python3 scripts/agent_environment.py stage-agents \"$@\""
 
 [tasks.verify-stage]
+hide = true
 description = "Compare a staged ~/.agents candidate with its snapshot."
 run = "python3 scripts/agent_environment.py verify-stage \"$@\""
 
 [tasks.cutover-agents]
+hide = true
 description = "Atomically replace ~/.agents with a verified candidate."
 run = "python3 scripts/agent_environment.py cutover-agents \"$@\""
 
 [tasks.rollback-agents]
+hide = true
 description = "Restore the retained bootstrap ~/.agents link for a snapshot."
 run = "python3 scripts/agent_environment.py rollback-agents \"$@\""
+
+[tasks.stage-skills]
+hide = true
+description = "Build and verify an atomic shared-skills candidate."
+run = "python3 scripts/agent_environment.py stage-skills \"$@\""
+
+[tasks.cutover-skills]
+hide = true
+description = "Activate a verified shared-skills candidate."
+run = "python3 scripts/agent_environment.py cutover-skills \"$@\""
+
+[tasks.rollback-skills]
+hide = true
+description = "Restore the retained pre-migration shared skills."
+run = "python3 scripts/agent_environment.py rollback-skills \"$@\""

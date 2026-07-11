@@ -90,12 +90,17 @@ def stage_agents(snapshot: Path) -> Path:
 
     skills = DEV_ROOT / "skills"
     subprocess.run(
-        ["mise", "exec", "--", "python", "scripts/install-skills.py", "--profile", "core,current-known", "--install-root", str(candidate / "skills")],
+        ["mise", "exec", "--", "python", "scripts/install-skills.py", "--install-root", str(candidate / "skills")],
         cwd=skills,
         check=True,
     )
     backup_link = HOME / f".agents.bootstrap.{suffix}"
-    metadata = {"snapshot": str(snapshot), "backup_link": str(backup_link), "source_link": os.readlink(HOME / ".agents")}
+    live = HOME / ".agents"
+    metadata = {
+        "snapshot": str(snapshot),
+        "backup_link": str(backup_link),
+        "source_link": os.readlink(live) if live.is_symlink() else None,
+    }
     (candidate / ".migration.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
     verify_stage(snapshot, candidate)
     (candidate / ".migration-verified").write_text("verified\n")
@@ -164,10 +169,104 @@ def rollback(snapshot: Path) -> None:
     print(f"rolled back {live}; migrated state retained at {failed}")
 
 
+def restore_snapshot(snapshot: Path) -> None:
+    verify_snapshot(snapshot)
+    live = HOME / ".agents"
+    candidate = HOME / f".agents.restore.{snapshot.name}"
+    failed = HOME / f".agents.pre-restore.{snapshot.name}"
+    for path in (candidate, failed):
+        if path.exists() or path.is_symlink():
+            raise SystemExit(f"restore path already exists: {path}")
+    with tempfile.TemporaryDirectory(prefix="agent-restore-") as temporary:
+        with tarfile.open(snapshot / "portable-state.tar.gz", "r:gz") as archive:
+            archive.extractall(temporary, filter="fully_trusted")
+        shutil.copytree(Path(temporary) / "live-agents", candidate, symlinks=True)
+    if tree_digest(candidate) != tree_digest_from_archive(snapshot):
+        shutil.rmtree(candidate)
+        raise SystemExit("restored candidate differs from the verified archive")
+    live.rename(failed)
+    try:
+        candidate.rename(live)
+        ensure_consumer_links()
+    except BaseException:
+        if not live.exists() and failed.exists():
+            failed.rename(live)
+        raise
+    print(f"restored {live} from {snapshot}; previous state retained at {failed}")
+
+
+def tree_digest_from_archive(snapshot: Path) -> str:
+    with tempfile.TemporaryDirectory(prefix="agent-restore-verify-") as temporary:
+        with tarfile.open(snapshot / "portable-state.tar.gz", "r:gz") as archive:
+            archive.extractall(temporary, filter="fully_trusted")
+        return tree_digest(Path(temporary) / "live-agents")
+
+
+def stage_skills(snapshot: Path) -> Path:
+    verify_snapshot(snapshot)
+    skills_repo = DEV_ROOT / "skills"
+    installer = skills_repo / "scripts/install-skills.py"
+    if not installer.is_file():
+        raise SystemExit(f"skills installer is missing: {installer}")
+    candidate = HOME / ".agents" / f"skills.next.{snapshot.name}"
+    if candidate.exists() or candidate.is_symlink():
+        raise SystemExit(f"skills staging path already exists: {candidate}")
+    subprocess.run(
+        ["mise", "exec", "--", "python", str(installer), "--install-root", str(candidate)],
+        cwd=skills_repo,
+        check=True,
+    )
+    system = HOME / ".agents/skills/.system"
+    if system.is_dir():
+        shutil.copytree(system, candidate / ".system", symlinks=True)
+    subprocess.run(
+        ["mise", "exec", "--", "python", str(installer), "--install-root", str(candidate), "--verify"],
+        cwd=skills_repo,
+        check=True,
+    )
+    (candidate / ".migration-verified").write_text(snapshot.name + "\n", encoding="utf-8")
+    print(candidate)
+    return candidate
+
+
+def cutover_skills(candidate: Path) -> None:
+    marker = candidate / ".migration-verified"
+    if not marker.is_file():
+        raise SystemExit("skills candidate has not passed verification")
+    suffix = marker.read_text(encoding="utf-8").strip()
+    live = HOME / ".agents/skills"
+    backup = HOME / ".agents" / f"skills.bootstrap.{suffix}"
+    if backup.exists() or backup.is_symlink():
+        raise SystemExit(f"skills rollback directory already exists: {backup}")
+    live.rename(backup)
+    try:
+        candidate.rename(live)
+        ensure_consumer_links()
+    except BaseException:
+        if not live.exists() and backup.exists():
+            backup.rename(live)
+        raise
+    print(f"activated {live}; previous skills retained at {backup}")
+
+
+def rollback_skills(snapshot: Path) -> None:
+    live = HOME / ".agents/skills"
+    backup = HOME / ".agents" / f"skills.bootstrap.{snapshot.name}"
+    failed = HOME / ".agents" / f"skills.failed.{snapshot.name}"
+    if not backup.is_dir():
+        raise SystemExit(f"skills rollback directory is missing: {backup}")
+    if failed.exists() or failed.is_symlink():
+        raise SystemExit(f"failed-state directory already exists: {failed}")
+    live.rename(failed)
+    backup.rename(live)
+    ensure_consumer_links()
+    print(f"rolled back {live}; replaced skills retained at {failed}")
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description="Verify, stage, cut over, or roll back the shared agent environment.")
     subcommands = result.add_subparsers(dest="command", required=True)
-    for name in ["verify-snapshot", "stage-agents", "rollback-agents"]:
+    for name in ["verify-snapshot", "stage-agents", "rollback-agents", "restore-snapshot", "stage-skills", "rollback-skills"]:
         command = subcommands.add_parser(name)
         command.add_argument("snapshot", type=Path)
     verify = subcommands.add_parser("verify-stage")
@@ -175,6 +274,8 @@ def parser() -> argparse.ArgumentParser:
     verify.add_argument("candidate", type=Path)
     cut = subcommands.add_parser("cutover-agents")
     cut.add_argument("candidate", type=Path)
+    cut_skills = subcommands.add_parser("cutover-skills")
+    cut_skills.add_argument("candidate", type=Path)
     return result
 
 
@@ -190,6 +291,14 @@ def main() -> None:
         cutover(args.candidate.resolve())
     elif args.command == "rollback-agents":
         rollback(args.snapshot.resolve())
+    elif args.command == "restore-snapshot":
+        restore_snapshot(args.snapshot.resolve())
+    elif args.command == "stage-skills":
+        stage_skills(args.snapshot.resolve())
+    elif args.command == "cutover-skills":
+        cutover_skills(args.candidate.resolve())
+    elif args.command == "rollback-skills":
+        rollback_skills(args.snapshot.resolve())
 
 
 if __name__ == "__main__":

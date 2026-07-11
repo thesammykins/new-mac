@@ -14,10 +14,10 @@ fail() {
 
 usage() {
 	cat <<'EOF'
-Usage: ./setup.sh [flags]
+Usage: ./setup.sh [advanced flags]
 
-Bootstraps Homebrew, Git, and mise, then runs:
-  mise run apply -- [flags]
+Run without arguments for the guided Mac setup menu.
+Existing flags remain available for automation and scripted recovery.
 
 Common flags:
   --profile personal|work|minimal|agent-dev
@@ -94,8 +94,13 @@ main() {
 	ensure_git
 	ensure_mise
 
-	log "Handing off to mise run apply"
-	run mise run apply -- "$@"
+	if [[ "$#" -eq 0 ]]; then
+		log "Opening guided setup"
+		run mise exec -- python "$REPO_ROOT/scripts/setup_tui.py"
+	else
+		log "Running compatibility command-line setup"
+		run mise run apply -- "$@"
+	fi
 }
 
 main "$@"
