@@ -14,6 +14,10 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AgentEnvironmentTests(unittest.TestCase):
+    def test_orchestrator_never_upgrades_brew_implicitly(self) -> None:
+        source = (ROOT / "scripts/new_mac_actions.py").read_text()
+        self.assertIn('"bundle", "install", "--no-upgrade"', source)
+
     def test_tree_digest_detects_content_changes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -77,7 +77,7 @@ def install_brew(ctx: Context, runner: Runner) -> None:
         brewfile = dotfiles / brewfile_name
         if not brewfile.exists() and not ctx.dry_run:
             raise SystemExit(f"Missing Brewfile: {brewfile}")
-        runner.run(["brew", "bundle", "install", f"--file={brewfile}"])
+        runner.run(["brew", "bundle", "install", "--no-upgrade", f"--file={brewfile}"])
 
 
 def install_dotfiles(ctx: Context, runner: Runner) -> None:
