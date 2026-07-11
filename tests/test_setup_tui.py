@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,18 @@ SPEC.loader.exec_module(MODULE)
 
 
 class SetupTuiTests(unittest.TestCase):
+    def test_unsupported_cursor_visibility_does_not_break_menu(self) -> None:
+        class Screen:
+            def keypad(self, _: bool) -> None: pass
+            def erase(self) -> None: pass
+            def getmaxyx(self) -> tuple[int, int]: return (24, 80)
+            def addnstr(self, *_: object) -> None: pass
+            def refresh(self) -> None: pass
+            def getch(self) -> int: return ord("q")
+
+        with mock.patch.object(MODULE.curses, "curs_set", side_effect=MODULE.curses.error):
+            self.assertEqual("back", MODULE.curses_menu(Screen(), "Menu", MODULE.MAIN_MENU))
+
     def test_main_menu_has_required_order_and_default(self) -> None:
         self.assertEqual("smart-update", MODULE.MAIN_MENU[0].action)
         self.assertEqual(

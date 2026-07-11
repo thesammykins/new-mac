@@ -108,7 +108,10 @@ def prompt_menu(
 
 
 def curses_menu(screen: curses.window, title: str, items: tuple[MenuItem, ...]) -> str:
-    curses.curs_set(0)
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass
     screen.keypad(True)
     index = 0
     while True:
