@@ -96,7 +96,7 @@ def install_dotfiles(ctx: Context, runner: Runner) -> None:
 def install_skills(ctx: Context, runner: Runner) -> None:
     skills = ensure_repo(ctx, runner, "skills")
     profiles = ",".join(ctx.config.get("skill_profiles", []))
-    command = ["python3", str(skills / "scripts/install-skills.py"), "--profile", profiles]
+    command = ["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "--profile", profiles]
     if ctx.dry_run:
         command.append("--dry-run")
     runner.run(command)
@@ -106,7 +106,8 @@ def install_plugins(ctx: Context, runner: Runner) -> None:
     ensure_repo(ctx, runner, "codex-stuff")
     runner.run(["codex", "plugin", "marketplace", "add", "thesammykins/codex-stuff", "--ref", "main"])
     for plugin in ctx.config.get("codex_plugins", []):
-        runner.run(["codex", "plugin", "add", f"{plugin}@codex-stuff"])
+        identifier = plugin if "@" in plugin else f"{plugin}@codex-stuff"
+        runner.run(["codex", "plugin", "add", identifier])
 
 
 def apply(ctx: Context) -> None:
@@ -171,11 +172,19 @@ def check(_: Context) -> None:
     required_files = [
         REPO_ROOT / "setup.sh",
         REPO_ROOT / "scripts/new_mac.py",
+        REPO_ROOT / "scripts/agent_environment.py",
+        REPO_ROOT / "scripts/snapshot_agent_environment.py",
         PROFILE_DIR / "common.toml",
     ]
     for path in required_files:
         if not path.exists():
             problems.append(f"missing {path}")
+
+    expected_plugins = {"arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"}
+    for profile in ("personal", "agent-dev"):
+        missing_plugins = expected_plugins - set(load_profile(profile).get("codex_plugins", []))
+        if missing_plugins:
+            problems.append(f"{profile}: missing Codex plugins {', '.join(sorted(missing_plugins))}")
 
     if problems:
         print("Check failed:")

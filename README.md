@@ -68,6 +68,25 @@ mise run install-plugins -- --profile agent-dev --dry-run
 mise run check
 ```
 
+## Existing Mac Agent Migration
+
+The migration flow keeps the existing bootstrap link until a fully staged replacement passes hash verification:
+
+```bash
+mise run snapshot
+mise run verify-snapshot -- ~/Backups/agent-environment/<timestamp>
+mise run stage-agents -- ~/Backups/agent-environment/<timestamp>
+mise run cutover-agents -- ~/.agents.next.<timestamp>
+```
+
+The cutover retains `~/.agents.bootstrap.<timestamp>`. Restore it without deleting the failed candidate:
+
+```bash
+mise run rollback-agents -- ~/Backups/agent-environment/<timestamp>
+```
+
+Snapshots exclude authentication, sessions, browser profiles, generated media, caches, and logs databases. They remain local under `~/Backups/agent-environment` with owner-only permissions.
+
 ## Fresh Mac Notes
 
 `mise` requires trusted config files before it runs repo tasks. `setup.sh` runs `mise trust` for this repo after installing `mise`.

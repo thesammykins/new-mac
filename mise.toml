@@ -35,4 +35,28 @@ run = "python3 scripts/new_mac.py install-plugins \"$@\""
 
 [tasks.check]
 description = "Validate profile syntax and scripts."
-run = "python3 scripts/new_mac.py check \"$@\""
+run = "python3 scripts/new_mac.py check \"$@\" && python3 -m unittest discover -s tests -v"
+
+[tasks.snapshot]
+description = "Create and attest a two-tier backup of the live agent environment."
+run = "python3 scripts/snapshot_agent_environment.py \"$@\""
+
+[tasks.verify-snapshot]
+description = "Verify an attested agent-environment snapshot."
+run = "python3 scripts/agent_environment.py verify-snapshot \"$@\""
+
+[tasks.stage-agents]
+description = "Build and verify a parallel ~/.agents candidate from a snapshot."
+run = "python3 scripts/agent_environment.py stage-agents \"$@\""
+
+[tasks.verify-stage]
+description = "Compare a staged ~/.agents candidate with its snapshot."
+run = "python3 scripts/agent_environment.py verify-stage \"$@\""
+
+[tasks.cutover-agents]
+description = "Atomically replace ~/.agents with a verified candidate."
+run = "python3 scripts/agent_environment.py cutover-agents \"$@\""
+
+[tasks.rollback-agents]
+description = "Restore the retained bootstrap ~/.agents link for a snapshot."
+run = "python3 scripts/agent_environment.py rollback-agents \"$@\""
