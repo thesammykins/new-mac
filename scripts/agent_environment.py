@@ -86,11 +86,10 @@ def stage_agents(snapshot: Path) -> Path:
 
     dotfiles = DEV_ROOT / "dotfiles"
     replace_with_link(candidate / "AGENTS.md", dotfiles / ".agents/AGENTS.md")
-    replace_with_link(candidate / "GEMINI.md", dotfiles / ".agents/GEMINI.md")
 
     skills = DEV_ROOT / "skills"
     subprocess.run(
-        ["mise", "exec", "--", "python", "scripts/install-skills.py", "--install-root", str(candidate / "skills")],
+        ["mise", "exec", "--", "python", "scripts/install-skills.py", "install", "--target", str(candidate / "skills")],
         cwd=skills,
         check=True,
     )
@@ -116,7 +115,7 @@ def verify_stage(snapshot: Path, candidate: Path) -> None:
         changed = sorted(name for name in expected.keys() & actual.keys() if expected[name] != actual[name])
         extra = sorted(set(actual) - set(expected))
         raise SystemExit(f"staged skills differ; missing={missing}, changed={changed}, extra={extra}")
-    if not (candidate / "AGENTS.md").is_symlink() or not (candidate / "GEMINI.md").is_symlink():
+    if not (candidate / "AGENTS.md").is_symlink():
         raise SystemExit("staged shared instructions are not linked to dotfiles")
     print(f"verified stage: {candidate} ({len(actual)} skill directories)")
 
@@ -212,7 +211,7 @@ def stage_skills(snapshot: Path) -> Path:
     if candidate.exists() or candidate.is_symlink():
         raise SystemExit(f"skills staging path already exists: {candidate}")
     subprocess.run(
-        ["mise", "exec", "--", "python", str(installer), "--install-root", str(candidate)],
+        ["mise", "exec", "--", "python", str(installer), "install", "--target", str(candidate)],
         cwd=skills_repo,
         check=True,
     )
@@ -220,7 +219,7 @@ def stage_skills(snapshot: Path) -> Path:
     if system.is_dir():
         shutil.copytree(system, candidate / ".system", symlinks=True)
     subprocess.run(
-        ["mise", "exec", "--", "python", str(installer), "--install-root", str(candidate), "--verify"],
+        ["mise", "exec", "--", "python", str(installer), "verify", "--target", str(candidate)],
         cwd=skills_repo,
         check=True,
     )

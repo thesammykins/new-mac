@@ -104,17 +104,18 @@ def install_dotfiles(ctx: Context, runner: Runner) -> None:
 
 def install_skills(ctx: Context, runner: Runner) -> None:
     skills = ensure_repo(ctx, runner, "skills")
-    command = ["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py")]
-    if ctx.dry_run:
-        command.append("--dry-run")
-    runner.run(command)
+    installer = ["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py")]
+    runner.run([*installer, "install", *(["--dry-run"] if ctx.dry_run else [])])
+    # External skills are pinned upstream sources; without --apply the
+    # installer only previews the commands.
+    runner.run([*installer, "external", *([] if ctx.dry_run else ["--apply"])])
 
 
 def verify_skills(ctx: Context, runner: Runner) -> None:
     skills = repo_path(ctx, "skills")
     if not (skills / ".git").exists() and not ctx.dry_run:
         raise SystemExit(f"Skills checkout is missing: {skills}")
-    runner.run(["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "--verify"])
+    runner.run(["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "verify"])
 
 
 def install_plugins(ctx: Context, runner: Runner) -> None:
