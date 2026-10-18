@@ -1,5 +1,2 @@
 default_components = ["agents", "brew", "dotfiles", "skills"]
 brewfiles = ["Brewfile", "Brewfile.dev"]
-[dotfiles_env]
-DOTFILES_INSTALL_DEV = "1"
-DOTFILES_INSTALL_WORKSTATION = "0"

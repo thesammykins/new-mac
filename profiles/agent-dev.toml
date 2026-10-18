@@ -1,7 +1,3 @@
 default_components = ["agents", "brew", "dotfiles", "skills", "codex-stuff", "claude"]
 brewfiles = ["Brewfile", "Brewfile.dev", "Brewfile.workstation"]
 codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]
-
-[dotfiles_env]
-DOTFILES_INSTALL_DEV = "1"
-DOTFILES_INSTALL_WORKSTATION = "1"

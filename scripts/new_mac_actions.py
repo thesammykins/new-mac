@@ -41,8 +41,10 @@ def ensure_repo(ctx: Context, runner: Runner, key: str) -> Path:
         raise SystemExit(f"No repo URL configured for {key}")
 
     if (target / ".git").exists():
-        runner.run(["git", "-C", str(target), "pull", "--ff-only"])
         return target
+
+    if target.exists() and any(target.iterdir()):
+        raise SystemExit(f"Repository target exists but is not a Git checkout: {target}")
 
     if ctx.dry_run:
         runner.run(["mkdir", "-p", str(target.parent)])
@@ -50,6 +52,55 @@ def ensure_repo(ctx: Context, runner: Runner, key: str) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
     runner.run(["git", "clone", url, str(target)])
     return target
+
+
+def git_output(repo: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def update_repo(repo: Path, runner: Runner) -> None:
+    if git_output(repo, "status", "--porcelain"):
+        raise SystemExit(f"Refusing to update repository with uncommitted changes: {repo}")
+
+    try:
+        upstream = git_output(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+    except subprocess.CalledProcessError as error:
+        raise SystemExit(f"Repository has no configured upstream branch: {repo}") from error
+    remote = upstream.split("/", 1)[0]
+    runner.run(["git", "-C", str(repo), "fetch", "--prune", remote])
+    if runner.dry_run:
+        return
+
+    ahead_text, behind_text = git_output(repo, "rev-list", "--left-right", "--count", f"HEAD...{upstream}").split()
+    ahead, behind = int(ahead_text), int(behind_text)
+    if ahead:
+        state = "diverged from" if behind else "ahead of"
+        raise SystemExit(f"Refusing to update repository {state} {upstream}: {repo}")
+    if not behind:
+        print(f"Repository already current: {repo}")
+        return
+    runner.run(["git", "-C", str(repo), "merge", "--ff-only", upstream])
+
+
+def update_existing_repositories(ctx: Context, runner: Runner) -> None:
+    keys: list[str] = []
+    if "brew" in ctx.components or "dotfiles" in ctx.components:
+        keys.append("dotfiles")
+    if "skills" in ctx.components:
+        keys.append("skills")
+    if "codex-stuff" in ctx.components:
+        keys.append("codex-stuff")
+
+    for key in keys:
+        target = ensure_repo(ctx, runner, key)
+        if (target / ".git").exists() and not ctx.dry_run:
+            update_repo(target, runner)
 
 
 def install_agents(ctx: Context, runner: Runner) -> None:
@@ -230,6 +281,7 @@ def smart_update(ctx: Context) -> None:
     runner.run(
         ["mise", "exec", "--", "python", str(REPO_ROOT / "scripts/agent_environment.py"), "verify-snapshot", str(snapshot)]
     )
+    update_existing_repositories(ctx, runner)
     apply(replace(ctx, yes=True))
     doctor(ctx)
     print(f"Smart Update complete. Verified rollback snapshot: {snapshot}")

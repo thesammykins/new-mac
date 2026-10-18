@@ -16,15 +16,17 @@ selection, verification and repair, skills, backups, rollback, and advanced
 diagnostics. It uses the Python standard library only: curses in an interactive
 terminal and numbered prompts everywhere else.
 
-Smart Update is the default. It creates and verifies a two-tier local snapshot
-before pulling or applying anything, installs missing Homebrew items without
-requesting upgrades, applies dotfiles, synchronizes the complete skill inventory
-and Codex plugins, then runs the doctor.
+Smart Update is the default. It creates and verifies a two-tier local snapshot,
+then explicitly updates clean repositories with fast-forward-only merges. Dirty,
+ahead, and diverged repositories stop before any apply step. It installs missing
+Homebrew items without requesting upgrades, applies dotfiles, synchronizes the
+complete skill inventory and Codex plugins, then runs the doctor.
 
 ## Ownership
 
 - `new-mac` owns orchestration and the human-facing menu.
-- `dotfiles` owns shared configuration, Brewfile tiers, and the pinned mise baseline.
+- `dotfiles` owns shared configuration, Brewfile tiers, and global mise settings;
+  projects own their runtime and package-manager versions.
 - `skills` owns the public skill catalog and installer; `skills-private`
   holds personal skills.
 - `codex-stuff` owns portable Codex plugins; Claude plugins are listed in
