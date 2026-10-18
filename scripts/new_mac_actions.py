@@ -65,7 +65,7 @@ def git_output(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def update_repo(repo: Path, runner: Runner) -> None:
+def update_repo(repo: Path, runner: Runner, env: dict[str, str] | None = None) -> None:
     if git_output(repo, "status", "--porcelain"):
         raise SystemExit(f"Refusing to update repository with uncommitted changes: {repo}")
 
@@ -74,7 +74,7 @@ def update_repo(repo: Path, runner: Runner) -> None:
     except subprocess.CalledProcessError as error:
         raise SystemExit(f"Repository has no configured upstream branch: {repo}") from error
     remote = upstream.split("/", 1)[0]
-    runner.run(["git", "-C", str(repo), "fetch", "--prune", remote])
+    runner.run(["git", "-C", str(repo), "fetch", "--prune", remote], env=env)
     if runner.dry_run:
         return
 
@@ -103,8 +103,17 @@ def update_existing_repositories(ctx: Context, runner: Runner) -> None:
 
     for key in keys:
         target = ensure_repo(ctx, runner, key)
-        if (target / ".git").exists() and not ctx.dry_run:
-            update_repo(target, runner)
+        if not (target / ".git").exists() or ctx.dry_run:
+            continue
+        if key == "skills-private":
+            # Optional, like its install: never wait for credentials, and a
+            # failed update warns instead of stopping Smart Update.
+            try:
+                update_repo(target, runner, env={**os.environ, "GIT_TERMINAL_PROMPT": "0"})
+            except (subprocess.CalledProcessError, SystemExit) as error:
+                print(f"Skipping private skills update: {error}")
+            continue
+        update_repo(target, runner)
 
 
 def install_agents(ctx: Context, runner: Runner) -> None:

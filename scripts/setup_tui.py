@@ -154,12 +154,17 @@ def choose_snapshot(interactive: bool) -> Path | None:
     return None if selected == "back" else Path(selected)
 
 
-def run_setup(interactive: bool) -> None:
+def run_setup(interactive: bool, *, existing_mac: bool = False) -> None:
     profile = choose("Choose a setup profile", PROFILE_MENU, interactive)
     if profile == "back":
         return
     run_backend("plan", "--profile", profile)
-    if confirm(f"Apply the {profile} plan shown above?") and run_backend("apply", "--profile", profile, "--yes"):
+    if not confirm(f"Apply the {profile} plan shown above?"):
+        return
+    # An existing Mac goes through Smart Update so a verified snapshot is taken
+    # and repositories are updated before anything is applied.
+    command = "smart-update" if existing_mac else "apply"
+    if run_backend(command, "--profile", profile, "--yes"):
         save_profile(profile)
 
 
@@ -226,7 +231,7 @@ def main() -> None:
             # A fresh Mac, or one never set up through new-mac, picks a profile
             # and reviews its plan first.
             if is_fresh_mac() or not saved_profile():
-                run_setup(interactive)
+                run_setup(interactive, existing_mac=not is_fresh_mac())
             else:
                 run_backend("smart-update", "--profile", saved_profile(), "--yes")
         elif action == "setup":
@@ -236,7 +241,7 @@ def main() -> None:
                 run_backend("verify-repair", "--profile", saved_profile(), "--yes")
             else:
                 print("No profile is recorded for this Mac yet; choose one first.")
-                run_setup(interactive)
+                run_setup(interactive, existing_mac=not is_fresh_mac())
         elif action == "skills":
             manage_skills(interactive)
         elif action == "backups":

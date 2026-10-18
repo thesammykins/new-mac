@@ -116,6 +116,54 @@ class ProfileChoiceTests(unittest.TestCase):
         self.assertIn("--profile ci", output.getvalue())
 
 
+class ExistingMacFirstRunTests(unittest.TestCase):
+    def test_existing_mac_without_profile_gets_a_snapshot_first(self) -> None:
+        # An existing Mac with no recorded profile chooses one, then runs Smart
+        # Update (snapshot + repo updates) rather than a plain apply.
+        with (
+            mock.patch.object(TUI, "saved_profile", return_value=""),
+            mock.patch.object(TUI, "is_fresh_mac", return_value=False),
+            mock.patch.object(TUI, "choose", side_effect=["smart-update", "work", "exit"]),
+            mock.patch.object(TUI, "confirm", return_value=True),
+            mock.patch.object(TUI, "save_profile"),
+            mock.patch.object(TUI, "run_backend", return_value=True) as run_backend,
+        ):
+            TUI.main()
+        self.assertEqual(run_backend.call_args_list[-1].args, ("smart-update", "--profile", "work", "--yes"))
+
+    def test_fresh_mac_applies_directly(self) -> None:
+        with (
+            mock.patch.object(TUI, "saved_profile", return_value=""),
+            mock.patch.object(TUI, "is_fresh_mac", return_value=True),
+            mock.patch.object(TUI, "choose", side_effect=["smart-update", "personal", "exit"]),
+            mock.patch.object(TUI, "confirm", return_value=True),
+            mock.patch.object(TUI, "save_profile"),
+            mock.patch.object(TUI, "run_backend", return_value=True) as run_backend,
+        ):
+            TUI.main()
+        self.assertEqual(run_backend.call_args_list[-1].args[0], "apply")
+
+
+class PrivateUpdateTests(unittest.TestCase):
+    def test_private_update_failure_warns_and_does_not_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            dev_root = Path(temporary)
+            for key in ("dotfiles", "skills", "skills-private", "codex-stuff"):
+                (dev_root / key / ".git").mkdir(parents=True)
+            ctx = context(dry_run=False, dev_root=dev_root)
+            calls = []
+            def fake_update(repo, runner, env=None):
+                calls.append((repo.name, env))
+                if repo.name == "skills-private":
+                    raise subprocess.CalledProcessError(128, ["git", "fetch"])
+            with mock.patch.object(ACTIONS, "update_repo", side_effect=fake_update), redirect_stdout(io.StringIO()) as output:
+                ACTIONS.update_existing_repositories(ctx, CORE.Runner(False))
+            private_env = dict(calls)["skills-private"]
+            self.assertEqual(private_env["GIT_TERMINAL_PROMPT"], "0")
+            self.assertIn("Skipping private skills update", output.getvalue())
+            self.assertIn("codex-stuff", dict(calls))
+
+
 class ClaudeAndPrivateSkillsTests(unittest.TestCase):
     def test_claude_commands_run_through_mise(self) -> None:
         ctx = context()
