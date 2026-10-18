@@ -3,10 +3,13 @@
 The single setup and maintenance entry point for Sammy's Macs.
 
 ```bash
-git clone https://github.com/thesammykins/new-mac.git "$HOME/Development/new-mac"
-cd "$HOME/Development/new-mac"
-./setup.sh
+git clone https://github.com/thesammykins/new-mac.git ~/Development/new-mac && ~/Development/new-mac/setup.sh
 ```
+
+On a brand-new Mac, `git` first offers to install the Command Line Tools; run
+the line again once they finish. Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
+to ask you before it changes anything. Profiles: `personal`, `agent-dev`,
+`work`, `minimal`, and `ci` for CI runner Macs.
 
 The guided menu handles an existing Mac's safe update, fresh-machine profile
 selection, verification and repair, skills, backups, rollback, and advanced
@@ -22,8 +25,10 @@ and Codex plugins, then runs the doctor.
 
 - `new-mac` owns orchestration and the human-facing menu.
 - `dotfiles` owns shared configuration, Brewfile tiers, and the pinned mise baseline.
-- `skills` owns the complete shared skill catalog and installer.
-- `codex-stuff` owns portable Codex plugins.
+- `skills` owns the public skill catalog and installer; `skills-private`
+  holds personal skills.
+- `codex-stuff` owns portable Codex plugins; Claude plugins are listed in
+  `profiles/common.toml`.
 - `codex-private-setup` owns private Codex profile and hook policy.
 
 Snapshots remain local under `~/Backups/agent-environment`. Verified snapshots
