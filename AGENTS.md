@@ -21,14 +21,19 @@ they already said:
    with `scripts/brew-tiers.sh uninstall <tier>` in dotfiles and get a yes
    before adding `--apply`.
 
+The repo's scripts need the Python pinned in `mise.toml` (macOS's own
+`python3` is too old), so run them through `mise exec`. `./setup.sh` installs
+mise first on a fresh Mac. `--mode ci` only validates; a CI runner Mac uses
+`--profile ci`.
+
 Then show the plan and get a yes before applying:
 
 ```bash
-python3 scripts/new_mac.py plan --profile <profile> --dry-run
-python3 scripts/new_mac.py apply --profile <profile> --yes
+mise exec -- python scripts/new_mac.py plan --profile <profile> --dry-run
+mise exec -- python scripts/new_mac.py apply --profile <profile> --yes
 ```
 
-On an existing Mac use `python3 scripts/new_mac.py smart-update --profile <profile> --yes`.
+On an existing Mac use `mise exec -- python scripts/new_mac.py smart-update --profile <profile> --yes`.
 `./setup.sh` is the same thing as a guided menu for a person at the keyboard.
 
 ## What each component does
@@ -61,6 +66,6 @@ After editing this repo:
 
 ```bash
 mise run check
-python3 scripts/new_mac.py plan --profile personal --dry-run
-python3 scripts/new_mac.py plan --profile ci --dry-run
+mise exec -- python scripts/new_mac.py plan --profile personal --dry-run
+mise exec -- python scripts/new_mac.py plan --profile ci --dry-run
 ```

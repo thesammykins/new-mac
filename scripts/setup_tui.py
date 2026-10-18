@@ -11,7 +11,8 @@ from typing import Callable, TextIO
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKUP_ROOT = Path.home() / "Backups/agent-environment"
-PROFILE_STATE = Path.home() / ".config/new-mac/profile"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from new_mac_core import PROFILE_STATE, save_profile, saved_profile  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -71,19 +72,6 @@ def verified_snapshots(root: Path = BACKUP_ROOT) -> list[Path]:
         (path for path in root.iterdir() if path.is_dir() and (path / "VERIFIED").is_file()),
         reverse=True,
     )
-
-
-def saved_profile(path: Path = PROFILE_STATE) -> str:
-    if path.is_file():
-        value = path.read_text(encoding="utf-8").strip()
-        if value in {item.action for item in PROFILE_MENU}:
-            return value
-    return "personal"
-
-
-def save_profile(profile: str, path: Path = PROFILE_STATE) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(profile + "\n", encoding="utf-8")
 
 
 def prompt_menu(
@@ -223,7 +211,9 @@ def advanced(interactive: bool) -> None:
         elif action == "audit":
             run_backend("audit")
         elif action == "preview":
-            run_backend("plan", "--profile", "personal", "--dry-run")
+            profile = saved_profile() or choose("Preview which profile?", PROFILE_MENU, interactive)
+            if profile != "back":
+                run_backend("plan", "--profile", profile, "--dry-run")
 
 
 def main() -> None:
@@ -233,14 +223,20 @@ def main() -> None:
         if action in {"exit", "back"}:
             return
         if action == "smart-update":
-            if is_fresh_mac():
+            # A fresh Mac, or one never set up through new-mac, picks a profile
+            # and reviews its plan first.
+            if is_fresh_mac() or not saved_profile():
                 run_setup(interactive)
             else:
                 run_backend("smart-update", "--profile", saved_profile(), "--yes")
         elif action == "setup":
             run_setup(interactive)
         elif action == "verify-repair":
-            run_backend("verify-repair", "--profile", "personal", "--yes")
+            if saved_profile():
+                run_backend("verify-repair", "--profile", saved_profile(), "--yes")
+            else:
+                print("No profile is recorded for this Mac yet; choose one first.")
+                run_setup(interactive)
         elif action == "skills":
             manage_skills(interactive)
         elif action == "backups":

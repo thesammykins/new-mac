@@ -99,6 +99,7 @@ class AgentEnvironmentTests(unittest.TestCase):
         failure = subprocess.CalledProcessError(1, ["snapshot"])
         with (
             mock.patch.object(ACTIONS.Runner, "run", side_effect=failure),
+            mock.patch.object(ACTIONS, "require_current_new_mac"),
             mock.patch.object(ACTIONS, "apply") as apply,
             self.assertRaises(subprocess.CalledProcessError),
         ):

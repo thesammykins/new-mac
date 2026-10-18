@@ -23,6 +23,7 @@ from new_mac_core import (
     repo_path,
     repo_url,
     resolve_components,
+    save_profile,
 )
 
 
@@ -34,7 +35,7 @@ def require_confirmation(ctx: Context) -> None:
         raise SystemExit("Aborted.")
 
 
-def ensure_repo(ctx: Context, runner: Runner, key: str) -> Path:
+def ensure_repo(ctx: Context, runner: Runner, key: str, env: dict[str, str] | None = None) -> Path:
     target = repo_path(ctx, key)
     url = repo_url(ctx, key)
     if not url:
@@ -50,7 +51,7 @@ def ensure_repo(ctx: Context, runner: Runner, key: str) -> Path:
         runner.run(["mkdir", "-p", str(target.parent)])
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
-    runner.run(["git", "clone", url, str(target)])
+    runner.run(["git", "clone", url, str(target)], env=env)
     return target
 
 
@@ -94,6 +95,9 @@ def update_existing_repositories(ctx: Context, runner: Runner) -> None:
         keys.append("dotfiles")
     if "skills" in ctx.components:
         keys.append("skills")
+        # Only update the private checkout if this Mac already has it.
+        if repo_url(ctx, "skills-private") and (repo_path(ctx, "skills-private") / ".git").exists():
+            keys.append("skills-private")
     if "codex-stuff" in ctx.components:
         keys.append("codex-stuff")
 
@@ -151,7 +155,13 @@ def install_dotfiles(ctx: Context, runner: Runner) -> None:
     env["DOTFILES_STATUS_FILE"] = str(status_file)
     if "defaults" in ctx.components:
         env["DOTFILES_APPLY_MACOS_DEFAULTS"] = "1"
-    runner.run(["bash", str(dotfiles / "scripts/install.sh")], env=env)
+    if ctx.dry_run and (dotfiles / "scripts/install.sh").is_file():
+        env.pop("DOTFILES_STATUS_FILE")
+        # The installer's DOTFILES_DRY_RUN mode changes nothing, so run it to
+        # show which files would be linked or backed up.
+        subprocess.run(["bash", str(dotfiles / "scripts/install.sh")], env=env, check=True)
+    else:
+        runner.run(["bash", str(dotfiles / "scripts/install.sh")], env=env)
     if not ctx.dry_run and status_file.is_file():
         payload = json.loads(status_file.read_text(encoding="utf-8"))
         counts = ", ".join(f"{key}={len(payload[key])}" for key in ("linked", "installed", "skipped", "outdated", "failed"))
@@ -173,8 +183,10 @@ def install_private_skills(ctx: Context, runner: Runner, mode: str) -> None:
     # still gets every public skill, so a failed clone only warns.
     if not repo_url(ctx, "skills-private"):
         return
+    # Without credentials git would wait for a username; fail fast instead.
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     try:
-        private = ensure_repo(ctx, runner, "skills-private")
+        private = ensure_repo(ctx, runner, "skills-private", env=env)
     except subprocess.CalledProcessError:
         print("Skipping private skills: could not clone the private skills repository.")
         return
@@ -210,19 +222,21 @@ def install_claude(ctx: Context, runner: Runner) -> None:
     home = Path.home()
     link_into_place(home / ".claude/CLAUDE.md", home / ".agents/AGENTS.md", runner)
     link_into_place(home / ".claude/skills", home / ".agents/skills", runner)
-    known = known_claude_marketplaces()
+    # This process's PATH predates the install, so run claude through mise.
+    claude = ["mise", "exec", "claude", "--", "claude"]
+    known = known_claude_marketplaces(claude)
     for marketplace in ctx.config.get("claude_marketplaces", []):
         # Adding a marketplace twice fails, so setup only adds missing ones.
         if marketplace not in known:
-            runner.run(["claude", "plugin", "marketplace", "add", marketplace])
+            runner.run([*claude, "plugin", "marketplace", "add", marketplace], cwd=home)
     for plugin in ctx.config.get("claude_plugins", []):
-        runner.run(["claude", "plugin", "install", plugin])
+        runner.run([*claude, "plugin", "install", plugin], cwd=home)
 
 
-def known_claude_marketplaces() -> set[str]:
-    if shutil.which("claude") is None:
+def known_claude_marketplaces(claude: list[str]) -> set[str]:
+    if shutil.which("mise") is None:
         return set()
-    result = subprocess.run(["claude", "plugin", "marketplace", "list", "--json"], capture_output=True, text=True)
+    result = subprocess.run([*claude, "plugin", "marketplace", "list", "--json"], capture_output=True, text=True, cwd=Path.home())
     if result.returncode != 0:
         return set()
     return {entry.get("url") or entry.get("repo") for entry in json.loads(result.stdout)}
@@ -258,6 +272,8 @@ def apply(ctx: Context) -> None:
         install_plugins(ctx, runner)
     if "claude" in ctx.components:
         install_claude(ctx, runner)
+    if not ctx.dry_run:
+        save_profile(ctx.profile)
 
 
 def newest_verified_snapshot(root: Path | None = None) -> Path:
@@ -271,8 +287,27 @@ def newest_verified_snapshot(root: Path | None = None) -> Path:
     return snapshots[0]
 
 
+def require_current_new_mac() -> None:
+    # Smart Update applies whatever this checkout says, so an outdated copy on
+    # a second Mac would apply old logic. Ask for a pull rather than updating
+    # the code that is already running.
+    if not (REPO_ROOT / ".git").exists():
+        return
+    try:
+        upstream = git_output(REPO_ROOT, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
+        subprocess.run(["git", "-C", str(REPO_ROOT), "fetch", "--quiet", upstream.split("/", 1)[0]], check=True)
+        behind = int(git_output(REPO_ROOT, "rev-list", "--count", f"HEAD..{upstream}"))
+    except (subprocess.CalledProcessError, ValueError):
+        print("Could not check whether new-mac is up to date; continuing.")
+        return
+    if behind:
+        raise SystemExit(f"new-mac is {behind} commit(s) behind {upstream}. Run `git -C {REPO_ROOT} pull --ff-only`, then rerun.")
+
+
 def smart_update(ctx: Context) -> None:
     runner = Runner(ctx.dry_run)
+    if not ctx.dry_run:
+        require_current_new_mac()
     runner.run(["mise", "exec", "--", "python", str(REPO_ROOT / "scripts/snapshot_agent_environment.py")])
     if ctx.dry_run:
         print("[dry-run] snapshot verification, safe apply, and doctor would follow")

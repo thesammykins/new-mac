@@ -46,4 +46,4 @@ mise run audit
 
 The direct Python commands and compatibility flags remain available for CI,
 isolated testing, and scripted recovery, but are intentionally outside the normal
-setup path. Run `python3 scripts/new_mac.py --help` when that interface is needed.
+setup path. Run `mise exec -- python scripts/new_mac.py --help` when that interface is needed.

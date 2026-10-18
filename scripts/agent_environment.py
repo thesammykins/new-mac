@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import datetime as dt
+
 import argparse
 import hashlib
 import json
@@ -65,10 +67,20 @@ def source_skill_hashes(snapshot: Path) -> dict[str, str]:
 
 
 def replace_with_link(path: Path, target: Path) -> None:
-    if path.is_symlink() or path.is_file():
-        path.unlink()
-    elif path.exists():
-        shutil.rmtree(path)
+    # Whatever already sits at path (a hand-written CLAUDE.md, a real skills
+    # folder) is kept beside it with a dated name; snapshots don't cover all of
+    # these paths, so deleting them could lose data for good.
+    if path.is_symlink() and os.readlink(path) == str(target):
+        return
+    if path.exists() or path.is_symlink():
+        stamp = dt.datetime.now().strftime("%Y%m%d%H%M%S")
+        backup = path.with_name(f"{path.name}.backup-{stamp}")
+        counter = 1
+        while backup.exists() or backup.is_symlink():
+            backup = path.with_name(f"{path.name}.backup-{stamp}-{counter}")
+            counter += 1
+        path.rename(backup)
+        print(f"kept previous {path} at {backup}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.symlink_to(target)
 

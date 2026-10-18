@@ -13,6 +13,9 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROFILE_DIR = REPO_ROOT / "profiles"
+# The profile this Mac was last set up with. The menu reads it so Smart Update
+# and Verify and Repair never fall back to a profile nobody chose.
+PROFILE_STATE = Path.home() / ".config/new-mac/profile"
 
 COMPONENT_ALIASES = {"plugins": "codex-stuff"}
 COMPONENT_ORDER = [
@@ -120,6 +123,8 @@ def build_context(args: Any, forced_components: list[str] | None = None) -> Cont
     mode = args.mode or str(config.get("default_mode", "interactive"))
     dev_root = expand_path(args.dev_root or str(config.get("dev_root", "~/Development")))
     dry_run = bool(args.dry_run or mode == "ci")
+    if mode == "ci" and not args.dry_run:
+        print("Note: --mode ci only validates and applies nothing. To set up a CI runner Mac, use --profile ci.")
     components = forced_components or resolve_components(config, args.with_components, args.skip_components)
     return Context(
         profile=args.profile,
@@ -191,3 +196,17 @@ def print_plan(ctx: Context) -> None:
     for name, details in plan["repos"].items():
         state = "present" if details["exists"] else "missing"
         print(f"  - {name}: {details['path']} ({state})")
+
+
+def saved_profile(path: Path = PROFILE_STATE) -> str:
+    """The saved profile name, or "" when this Mac has none recorded."""
+    if path.is_file():
+        value = path.read_text(encoding="utf-8").strip()
+        if value in available_profiles():
+            return value
+    return ""
+
+
+def save_profile(profile: str, path: Path = PROFILE_STATE) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(profile + "\n", encoding="utf-8")

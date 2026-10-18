@@ -82,7 +82,8 @@ class SetupTuiTests(unittest.TestCase):
     def test_saved_profile_defaults_and_round_trips(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             state = Path(temporary) / "profile"
-            self.assertEqual("personal", MODULE.saved_profile(state))
+            # No silent default: an unrecorded Mac must choose a profile.
+            self.assertEqual("", MODULE.saved_profile(state))
             MODULE.save_profile("work", state)
             self.assertEqual("work", MODULE.saved_profile(state))
 

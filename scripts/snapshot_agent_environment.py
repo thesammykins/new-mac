@@ -62,7 +62,7 @@ def main() -> None:
 
     skills: dict[str, object] = {}
     skills_root = AGENTS_SOURCE / "skills"
-    for skill in sorted(skills_root.iterdir()):
+    for skill in sorted(skills_root.iterdir()) if skills_root.is_dir() else []:
         if skill.is_dir() and skill.name != ".system":
             skills[skill.name] = tree_manifest(skill)
     (inventory / "skills-tree.json").write_text(json.dumps(skills, indent=2, sort_keys=True) + "\n")
@@ -166,7 +166,9 @@ def main() -> None:
             raise SystemExit("portable archive verification failed")
         rehearsal = root / "rollback-rehearsal" / ".agents"
         rehearsal.parent.mkdir()
-        os.symlink(str(root / portable.stem / "bootstrap/home/.agents"), rehearsal)
+        # Rehearse the rollback link against the restored copy itself; the
+        # optional ~/Downloads/bootstrap tree only exists on the original Mac.
+        os.symlink(str(restored), rehearsal)
         if not rehearsal.resolve().is_dir():
             raise SystemExit("rollback rehearsal failed")
 
