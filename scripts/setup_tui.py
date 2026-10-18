@@ -35,6 +35,7 @@ PROFILE_MENU = (
     MenuItem("Work", "work"),
     MenuItem("Minimal", "minimal"),
     MenuItem("Agent Development", "agent-dev"),
+    MenuItem("CI Runner", "ci"),
 )
 
 SKILLS_MENU = (

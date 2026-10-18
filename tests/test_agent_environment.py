@@ -24,8 +24,11 @@ class AgentEnvironmentTests(unittest.TestCase):
         self.assertIn("AGENTS.is_symlink()", (ROOT / "scripts/snapshot_agent_environment.py").read_text())
 
     def test_orchestrator_never_upgrades_brew_implicitly(self) -> None:
+        # Brewfiles install through dotfiles' tier script, which runs
+        # `brew bundle install --no-upgrade`; new-mac must not call bundle itself.
         source = (ROOT / "scripts/new_mac_actions.py").read_text()
-        self.assertIn('"bundle", "install", "--no-upgrade"', source)
+        self.assertIn('"scripts/brew-tiers.sh"), "install"', source)
+        self.assertNotIn('"upgrade"', source)
 
     def test_snapshot_failure_aborts_before_apply(self) -> None:
         context = SimpleNamespace(dry_run=False)

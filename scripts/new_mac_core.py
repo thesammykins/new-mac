@@ -155,7 +155,7 @@ def plan_document(ctx: Context) -> dict[str, Any]:
             "path": str(repo_path(ctx, key)),
             "exists": (repo_path(ctx, key) / ".git").exists(),
         }
-        for key in ("dotfiles", "skills", "codex-stuff")
+        for key in ("dotfiles", "skills", "skills-private", "codex-stuff")
     }
     return {
         "profile": ctx.profile,

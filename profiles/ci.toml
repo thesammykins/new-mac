@@ -1,0 +1,4 @@
+# CI runner Macs. Only the ci Brewfile tier: the release toolchain and the
+# dedicated CI user come from the project's own runner setup script.
+default_components = ["agents", "brew", "dotfiles"]
+brewfiles = ["Brewfile.ci"]

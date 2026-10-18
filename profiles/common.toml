@@ -7,11 +7,13 @@ codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex
 [repos]
 dotfiles = "https://github.com/thesammykins/dotfiles.git"
 skills = "https://github.com/thesammykins/skills.git"
+skills-private = "https://github.com/thesammykins/skills-private.git"
 codex-stuff = "https://github.com/thesammykins/codex-stuff.git"
 
 [paths]
 dotfiles = "dotfiles"
 skills = "skills"
+skills-private = "skills-private"
 codex-stuff = "codex-stuff"
 
 [dotfiles_env]

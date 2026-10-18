@@ -4,6 +4,7 @@ import json
 import os
 import platform
 import shutil
+import subprocess
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -74,11 +75,14 @@ def install_opencode_cli(ctx: Context, runner: Runner) -> None:
 
 def install_brew(ctx: Context, runner: Runner) -> None:
     dotfiles = ensure_repo(ctx, runner, "dotfiles")
-    for brewfile_name in ctx.config.get("brewfiles", []):
-        brewfile = dotfiles / brewfile_name
-        if not brewfile.exists() and not ctx.dry_run:
-            raise SystemExit(f"Missing Brewfile: {brewfile}")
-        runner.run(["brew", "bundle", "install", "--no-upgrade", f"--file={brewfile}"])
+    brewfiles = ctx.config.get("brewfiles", [])
+    for brewfile_name in brewfiles:
+        if not (dotfiles / brewfile_name).exists() and not ctx.dry_run:
+            raise SystemExit(f"Missing Brewfile: {dotfiles / brewfile_name}")
+    if brewfiles:
+        # dotfiles' tier script trusts the Brewfiles' third-party taps before
+        # installing; Homebrew refuses formulae from untrusted taps.
+        runner.run(["bash", str(dotfiles / "scripts/brew-tiers.sh"), "install", *brewfiles])
 
 
 def install_dotfiles(ctx: Context, runner: Runner) -> None:
@@ -109,6 +113,20 @@ def install_skills(ctx: Context, runner: Runner) -> None:
     # External skills are pinned upstream sources; without --apply the
     # installer only previews the commands.
     runner.run([*installer, "external", *([] if ctx.dry_run else ["--apply"])])
+    install_private_skills(ctx, runner, "install")
+
+
+def install_private_skills(ctx: Context, runner: Runner, mode: str) -> None:
+    # Personal skills live in a private repository. A Mac without access to it
+    # still gets every public skill, so a failed clone only warns.
+    if not repo_url(ctx, "skills-private"):
+        return
+    try:
+        private = ensure_repo(ctx, runner, "skills-private")
+    except subprocess.CalledProcessError:
+        print("Skipping private skills: could not clone the private skills repository.")
+        return
+    runner.run(["bash", str(private / "scripts/install.sh"), mode])
 
 
 def verify_skills(ctx: Context, runner: Runner) -> None:
@@ -116,6 +134,7 @@ def verify_skills(ctx: Context, runner: Runner) -> None:
     if not (skills / ".git").exists() and not ctx.dry_run:
         raise SystemExit(f"Skills checkout is missing: {skills}")
     runner.run(["mise", "exec", "--", "python", str(skills / "scripts/install-skills.py"), "verify"])
+    install_private_skills(ctx, runner, "verify")
 
 
 def install_plugins(ctx: Context, runner: Runner) -> None:
