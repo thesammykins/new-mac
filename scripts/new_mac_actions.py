@@ -6,6 +6,7 @@ import platform
 import shutil
 import subprocess
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -137,6 +138,45 @@ def verify_skills(ctx: Context, runner: Runner) -> None:
     install_private_skills(ctx, runner, "verify")
 
 
+def link_into_place(path: Path, target: Path, runner: Runner) -> None:
+    # Point a Claude config path at the shared copy. Anything already there that
+    # isn't that link is kept beside it as a dated backup, never deleted.
+    if path.is_symlink() and path.resolve() == target.resolve():
+        return
+    if path.exists() or path.is_symlink():
+        backup = path.with_name(f"{path.name}.backup-{datetime.now():%Y%m%d%H%M%S}")
+        runner.run(["mv", str(path), str(backup)])
+    runner.run(["mkdir", "-p", str(path.parent)])
+    runner.run(["ln", "-s", str(target), str(path)])
+
+
+def install_claude(ctx: Context, runner: Runner) -> None:
+    # Claude Code is the one global mise tool (dotfiles' mise config). Its
+    # instructions and skills are the shared ~/.agents copies, like Codex's.
+    if shutil.which("mise") is None and not ctx.dry_run:
+        raise SystemExit("mise is required to install Claude Code; install the dev Brewfile tier first.")
+    runner.run(["mise", "install", "claude"], cwd=Path.home())
+    home = Path.home()
+    link_into_place(home / ".claude/CLAUDE.md", home / ".agents/AGENTS.md", runner)
+    link_into_place(home / ".claude/skills", home / ".agents/skills", runner)
+    known = known_claude_marketplaces()
+    for marketplace in ctx.config.get("claude_marketplaces", []):
+        # Adding a marketplace twice fails, so setup only adds missing ones.
+        if marketplace not in known:
+            runner.run(["claude", "plugin", "marketplace", "add", marketplace])
+    for plugin in ctx.config.get("claude_plugins", []):
+        runner.run(["claude", "plugin", "install", plugin])
+
+
+def known_claude_marketplaces() -> set[str]:
+    if shutil.which("claude") is None:
+        return set()
+    result = subprocess.run(["claude", "plugin", "marketplace", "list", "--json"], capture_output=True, text=True)
+    if result.returncode != 0:
+        return set()
+    return {entry.get("url") or entry.get("repo") for entry in json.loads(result.stdout)}
+
+
 def install_plugins(ctx: Context, runner: Runner) -> None:
     ensure_repo(ctx, runner, "codex-stuff")
     runner.run(["codex", "plugin", "marketplace", "add", "thesammykins/codex-stuff", "--ref", "main"])
@@ -165,6 +205,8 @@ def apply(ctx: Context) -> None:
         install_skills(ctx, runner)
     if "codex-stuff" in ctx.components:
         install_plugins(ctx, runner)
+    if "claude" in ctx.components:
+        install_claude(ctx, runner)
 
 
 def newest_verified_snapshot(root: Path | None = None) -> Path:
@@ -219,7 +261,7 @@ def doctor(ctx: Context) -> None:
         "platform": platform.platform(),
         "machine": platform.machine(),
         "dev_root": str(ctx.dev_root),
-        "commands": [command_status(name) for name in ("git", "brew", "mise", "python3", "codex", "opencode", "mas")],
+        "commands": [command_status(name) for name in ("git", "brew", "mise", "python3", "codex", "claude", "opencode", "mas")],
         "repos": plan_document(ctx)["repos"],
         "agents_skills": str(Path.home() / ".agents/skills"),
         "codex_skills": str(Path.home() / ".codex/skills"),

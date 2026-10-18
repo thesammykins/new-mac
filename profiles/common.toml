@@ -2,6 +2,9 @@ dev_root = "~/Development"
 default_mode = "interactive"
 default_components = ["agents", "brew", "dotfiles"]
 brewfiles = ["Brewfile"]
+# Sources exactly as `claude plugin marketplace list --json` reports them.
+claude_marketplaces = ["https://github.com/CharlesWiltgen/Axiom.git", "https://github.com/pbakaus/impeccable.git"]
+claude_plugins = ["axiom@axiom-marketplace", "impeccable@impeccable"]
 codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]
 
 [repos]

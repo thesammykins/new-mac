@@ -20,6 +20,7 @@ COMPONENT_ORDER = [
     "brew",
     "dotfiles",
     "codex",
+    "claude",
     "opencode",
     "skills",
     "codex-stuff",
@@ -165,6 +166,7 @@ def plan_document(ctx: Context) -> dict[str, Any]:
         "components": ctx.components,
         "brewfiles": ctx.config.get("brewfiles", []),
         "codex_plugins": ctx.config.get("codex_plugins", []),
+        "claude_plugins": ctx.config.get("claude_plugins", []),
         "repos": repos,
     }
 
@@ -183,6 +185,7 @@ def print_plan(ctx: Context) -> None:
     print("Brewfiles: " + ", ".join(plan["brewfiles"]))
     print("Skills: complete desired inventory")
     print("Codex plugins: " + ", ".join(plan["codex_plugins"]))
+    print("Claude plugins: " + ", ".join(plan["claude_plugins"]))
     print("")
     print("Repos:")
     for name, details in plan["repos"].items():
