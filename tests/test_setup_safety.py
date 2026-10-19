@@ -144,6 +144,58 @@ class ExistingMacFirstRunTests(unittest.TestCase):
         self.assertEqual(run_backend.call_args_list[-1].args[0], "apply")
 
 
+class SetupMenuTests(unittest.TestCase):
+    def test_changing_an_existing_mac_takes_a_snapshot_first(self) -> None:
+        with (
+            mock.patch.object(TUI, "is_fresh_mac", return_value=False),
+            mock.patch.object(TUI, "choose", side_effect=["setup", "work", "exit"]),
+            mock.patch.object(TUI, "confirm", return_value=True),
+            mock.patch.object(TUI, "save_profile"),
+            mock.patch.object(TUI, "run_backend", return_value=True) as run_backend,
+        ):
+            TUI.main()
+        self.assertEqual(run_backend.call_args_list[-1].args[0], "smart-update")
+
+
+class StageSkillsTests(unittest.TestCase):
+    def test_staged_skills_keep_everything_the_catalog_does_not_provide(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary)
+            live = home / ".agents/skills"
+            (live / "council").mkdir(parents=True)
+            (live / "council/SKILL.md").write_text("external\n")
+            (live / ".system").mkdir()
+            (live / ".external-skills.json").write_text("{}\n")
+            (live / ".private-skills.record").write_text("x y\n")
+            (live / "tool-managed").symlink_to(home)
+            dev_root = home / "Development"
+            (dev_root / "skills/scripts").mkdir(parents=True)
+            (dev_root / "skills/scripts/install-skills.py").write_text("")
+            snapshot = home / "snapshot"
+            snapshot.mkdir()
+            commands = []
+
+            def fake_run(command, cwd=None, check=None):
+                commands.append(command)
+                if "install" in command:
+                    candidate = Path(command[command.index("--target") + 1])
+                    (candidate / "catalog-skill").mkdir(parents=True)
+
+            with (
+                mock.patch.object(AGENT_ENV, "HOME", home),
+                mock.patch.object(AGENT_ENV, "DEV_ROOT", dev_root),
+                mock.patch.object(AGENT_ENV, "verify_snapshot"),
+                mock.patch.object(AGENT_ENV.subprocess, "run", side_effect=fake_run),
+                redirect_stdout(io.StringIO()),
+            ):
+                candidate = AGENT_ENV.stage_skills(snapshot)
+
+            for name in ("catalog-skill", "council", ".system", ".external-skills.json", ".private-skills.record"):
+                self.assertTrue((candidate / name).exists(), name)
+            self.assertTrue((candidate / "tool-managed").is_symlink())
+            self.assertIn("--checked-in-only", commands[-1])
+
+
 class PrivateUpdateTests(unittest.TestCase):
     def test_private_update_failure_warns_and_does_not_prompt(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

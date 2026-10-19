@@ -235,7 +235,7 @@ def main() -> None:
             else:
                 run_backend("smart-update", "--profile", saved_profile(), "--yes")
         elif action == "setup":
-            run_setup(interactive)
+            run_setup(interactive, existing_mac=not is_fresh_mac())
         elif action == "verify-repair":
             if saved_profile():
                 run_backend("verify-repair", "--profile", saved_profile(), "--yes")

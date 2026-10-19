@@ -227,11 +227,20 @@ def stage_skills(snapshot: Path) -> Path:
         cwd=skills_repo,
         check=True,
     )
-    system = HOME / ".agents/skills/.system"
-    if system.is_dir():
-        shutil.copytree(system, candidate / ".system", symlinks=True)
+    # The catalog install only provides checked-in skills. Carry over everything
+    # else that lives beside them (Codex's .system, external and private skills,
+    # tool-managed links and the install records) so cutover doesn't drop them.
+    live = HOME / ".agents/skills"
+    for entry in sorted(live.iterdir()) if live.is_dir() else []:
+        destination = candidate / entry.name
+        if destination.exists() or destination.is_symlink():
+            continue
+        if entry.is_dir() and not entry.is_symlink():
+            shutil.copytree(entry, destination, symlinks=True)
+        else:
+            shutil.copy2(entry, destination, follow_symlinks=False)
     subprocess.run(
-        ["mise", "exec", "--", "python", str(installer), "verify", "--target", str(candidate)],
+        ["mise", "exec", "--", "python", str(installer), "verify", "--checked-in-only", "--target", str(candidate)],
         cwd=skills_repo,
         check=True,
     )
