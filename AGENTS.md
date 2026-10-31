@@ -44,7 +44,7 @@ On an existing Mac use `mise exec -- python scripts/new_mac.py smart-update --pr
 - `skills`: installs the public catalog, the pinned external skills, and the
   private skills when the Mac can clone them.
 - `codex`, `codex-stuff`: Codex CLI and its plugins.
-- `claude`: Claude Code from dotfiles' global mise config, `~/.claude`
+- `claude`: Claude Code from the dev Brewfile tier's `claude-code` cask, `~/.claude`
   links to the shared instructions and skills, and the Claude plugins listed
   in `profiles/common.toml`. Existing Claude files are backed up, not deleted.
 - `defaults`: macOS defaults, only when asked.

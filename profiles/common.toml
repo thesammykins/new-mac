@@ -20,5 +20,4 @@ skills-private = "skills-private"
 codex-stuff = "codex-stuff"
 
 [dotfiles_env]
-DOTFILES_LINK_MODE = "migrate"
 DOTFILES_APPLY_MACOS_DEFAULTS = "0"

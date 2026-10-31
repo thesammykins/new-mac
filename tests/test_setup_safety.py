@@ -217,15 +217,6 @@ class PrivateUpdateTests(unittest.TestCase):
 
 
 class ClaudeAndPrivateSkillsTests(unittest.TestCase):
-    def test_claude_commands_run_through_mise(self) -> None:
-        ctx = context()
-        output = io.StringIO()
-        with mock.patch.object(ACTIONS, "known_claude_marketplaces", return_value=set()), redirect_stdout(output):
-            ACTIONS.install_claude(ctx, CORE.Runner(True))
-        plugin_lines = [line for line in output.getvalue().splitlines() if "plugin" in line]
-        self.assertTrue(plugin_lines)
-        self.assertTrue(all("mise exec claude -- claude plugin" in line for line in plugin_lines))
-
     def test_private_clone_cannot_wait_for_a_password(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             ctx = context(dry_run=False, dev_root=Path(temporary))
@@ -237,20 +228,19 @@ class ClaudeAndPrivateSkillsTests(unittest.TestCase):
             self.assertEqual(clone_env["GIT_TERMINAL_PROMPT"], "0")
             self.assertIn("Skipping private skills", output.getvalue())
 
-    def test_dry_run_previews_dotfiles_without_a_status_file(self) -> None:
+    def test_dry_run_previews_dotfiles(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             dev_root = Path(temporary)
             installer = dev_root / "dotfiles/scripts/install.sh"
             installer.parent.mkdir(parents=True)
             (dev_root / "dotfiles/.git").mkdir()
-            installer.write_text('echo "dry=$DOTFILES_DRY_RUN status=${DOTFILES_STATUS_FILE:-none}"\n')
+            installer.write_text('echo "dry=$DOTFILES_DRY_RUN"\n')
             ctx = context(dry_run=True, dev_root=dev_root)
             result = subprocess.run
             with mock.patch.object(ACTIONS.subprocess, "run", wraps=result) as run:
                 ACTIONS.install_dotfiles(ctx, CORE.Runner(True))
             env = run.call_args.kwargs["env"]
             self.assertEqual(env["DOTFILES_DRY_RUN"], "1")
-            self.assertNotIn("DOTFILES_STATUS_FILE", env)
 
 
 class SelfUpdateTests(unittest.TestCase):

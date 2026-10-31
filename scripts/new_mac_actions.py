@@ -152,29 +152,17 @@ def install_brew(ctx: Context, runner: Runner) -> None:
 
 def install_dotfiles(ctx: Context, runner: Runner) -> None:
     dotfiles = ensure_repo(ctx, runner, "dotfiles")
-    status_file = Path.home() / ".cache/new-mac/dotfiles-status.json"
-    if not ctx.dry_run:
-        status_file.parent.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env.update({key: str(value) for key, value in ctx.config.get("dotfiles_env", {}).items()})
-    env["DOTFILES_WORKTREE"] = str(dotfiles)
-    env["DOTFILES_ROOT"] = str(dotfiles)
     env["DOTFILES_DRY_RUN"] = "1" if ctx.dry_run else env.get("DOTFILES_DRY_RUN", "0")
-    env["DOTFILES_INSTALL_BREW"] = "0"
-    env["DOTFILES_STATUS_FILE"] = str(status_file)
     if "defaults" in ctx.components:
         env["DOTFILES_APPLY_MACOS_DEFAULTS"] = "1"
     if ctx.dry_run and (dotfiles / "scripts/install.sh").is_file():
-        env.pop("DOTFILES_STATUS_FILE")
         # The installer's DOTFILES_DRY_RUN mode changes nothing, so run it to
         # show which files would be linked or backed up.
         subprocess.run(["bash", str(dotfiles / "scripts/install.sh")], env=env, check=True)
     else:
         runner.run(["bash", str(dotfiles / "scripts/install.sh")], env=env)
-    if not ctx.dry_run and status_file.is_file():
-        payload = json.loads(status_file.read_text(encoding="utf-8"))
-        counts = ", ".join(f"{key}={len(payload[key])}" for key in ("linked", "installed", "skipped", "outdated", "failed"))
-        print(f"Dotfiles status: {payload['result']} ({counts})")
 
 
 def install_skills(ctx: Context, runner: Runner) -> None:
@@ -223,29 +211,26 @@ def link_into_place(path: Path, target: Path, runner: Runner) -> None:
 
 
 def install_claude(ctx: Context, runner: Runner) -> None:
-    # Claude Code is the one global mise tool (dotfiles' mise config). Its
+    # Claude Code comes from the dev Brewfile tier's claude-code cask. Its
     # instructions and skills are the shared ~/.agents copies, like Codex's.
-    if shutil.which("mise") is None and not ctx.dry_run:
-        raise SystemExit("mise is required to install Claude Code; install the dev Brewfile tier first.")
-    runner.run(["mise", "install", "claude"], cwd=Path.home())
+    if shutil.which("claude") is None and not ctx.dry_run:
+        raise SystemExit("Claude Code is missing; install the dev Brewfile tier first.")
     home = Path.home()
     link_into_place(home / ".claude/CLAUDE.md", home / ".agents/AGENTS.md", runner)
     link_into_place(home / ".claude/skills", home / ".agents/skills", runner)
-    # This process's PATH predates the install, so run claude through mise.
-    claude = ["mise", "exec", "claude", "--", "claude"]
-    known = known_claude_marketplaces(claude)
+    known = known_claude_marketplaces()
     for marketplace in ctx.config.get("claude_marketplaces", []):
         # Adding a marketplace twice fails, so setup only adds missing ones.
         if marketplace not in known:
-            runner.run([*claude, "plugin", "marketplace", "add", marketplace], cwd=home)
+            runner.run(["claude", "plugin", "marketplace", "add", marketplace], cwd=home)
     for plugin in ctx.config.get("claude_plugins", []):
-        runner.run([*claude, "plugin", "install", plugin], cwd=home)
+        runner.run(["claude", "plugin", "install", plugin], cwd=home)
 
 
-def known_claude_marketplaces(claude: list[str]) -> set[str]:
-    if shutil.which("mise") is None:
+def known_claude_marketplaces() -> set[str]:
+    if shutil.which("claude") is None:
         return set()
-    result = subprocess.run([*claude, "plugin", "marketplace", "list", "--json"], capture_output=True, text=True, cwd=Path.home())
+    result = subprocess.run(["claude", "plugin", "marketplace", "list", "--json"], capture_output=True, text=True, cwd=Path.home())
     if result.returncode != 0:
         return set()
     return {entry.get("url") or entry.get("repo") for entry in json.loads(result.stdout)}
