@@ -16,7 +16,7 @@ from typing import Any
 
 
 HOME = Path.home()
-DEV_ROOT = HOME / "Development"
+DEV_ROOT = HOME / "repos"
 
 
 def sha256_file(path: Path) -> str:

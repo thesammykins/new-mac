@@ -121,7 +121,7 @@ def resolve_components(config: dict[str, Any], include: str | None, skip: str | 
 def build_context(args: Any, forced_components: list[str] | None = None) -> Context:
     config = load_profile(args.profile)
     mode = args.mode or str(config.get("default_mode", "interactive"))
-    dev_root = expand_path(args.dev_root or str(config.get("dev_root", "~/Development")))
+    dev_root = expand_path(args.dev_root or str(config.get("dev_root", "~/repos")))
     dry_run = bool(args.dry_run or mode == "ci")
     if mode == "ci" and not args.dry_run:
         print("Note: --mode ci only validates and applies nothing. To set up a CI runner Mac, use --profile ci.")

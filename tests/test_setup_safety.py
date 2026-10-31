@@ -243,6 +243,41 @@ class ClaudeAndPrivateSkillsTests(unittest.TestCase):
             self.assertEqual(env["DOTFILES_DRY_RUN"], "1")
 
 
+class ReposVolumeTests(unittest.TestCase):
+    def volume_commands(self, profile: str, mounted: bool) -> list[list[str]]:
+        ctx = context(profile=profile, dev_root=Path.home() / "repos")
+        runner = mock.Mock()
+        with mock.patch.object(ACTIONS.os.path, "ismount", return_value=mounted):
+            ACTIONS.ensure_repos_volume(ctx, runner)
+        return [call.args[0] for call in runner.run.call_args_list]
+
+    def test_desktop_profile_creates_the_volume_from_a_throwaway_dotfiles_clone(self) -> None:
+        commands = self.volume_commands("personal", mounted=False)
+        self.assertEqual(commands[0][:4], ["git", "clone", "--depth", "1"])
+        self.assertTrue(commands[1][1].endswith("dotfiles/scripts/repos-volume.sh"))
+
+    def test_mounted_volume_and_ci_macs_are_left_alone(self) -> None:
+        self.assertEqual(self.volume_commands("personal", mounted=True), [])
+        self.assertEqual(self.volume_commands("ci", mounted=False), [])
+
+    def test_apply_makes_the_volume_before_cloning_anything(self) -> None:
+        ctx = context(profile="personal")
+        order = []
+        with (
+            mock.patch.object(ACTIONS, "ensure_repos_volume", side_effect=lambda *a: order.append("volume")),
+            mock.patch.object(ACTIONS, "ensure_repo", side_effect=lambda c, r, key, **k: order.append(key) or Path("/nonexistent")),
+            mock.patch.object(ACTIONS, "install_agents"),
+            mock.patch.object(ACTIONS, "install_brew"),
+            mock.patch.object(ACTIONS, "install_dotfiles"),
+            mock.patch.object(ACTIONS, "install_skills"),
+            mock.patch.object(ACTIONS, "install_plugins"),
+            mock.patch.object(ACTIONS, "install_claude"),
+            redirect_stdout(io.StringIO()),
+        ):
+            ACTIONS.apply(ctx)
+        self.assertEqual(order[:2], ["volume", "new-mac"])
+
+
 class SelfUpdateTests(unittest.TestCase):
     def test_smart_update_stops_when_new_mac_is_behind(self) -> None:
         with (

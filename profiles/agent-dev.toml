@@ -1,3 +1,4 @@
 default_components = ["agents", "brew", "dotfiles", "skills", "codex-stuff", "claude"]
+repos_volume = true
 brewfiles = ["Brewfile", "Brewfile.dev", "Brewfile.workstation"]
 codex_plugins = ["arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"]

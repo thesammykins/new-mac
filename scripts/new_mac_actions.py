@@ -5,6 +5,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -138,6 +139,18 @@ def install_opencode_cli(ctx: Context, runner: Runner) -> None:
     runner.run(["brew", "install", "opencode"])
 
 
+def ensure_repos_volume(ctx: Context, runner: Runner) -> None:
+    # repos-volume.sh refuses to mount over a folder that already has files,
+    # so the volume must exist before the first clone into ~/repos. Its script
+    # lives in dotfiles, which isn't cloned yet: use a throwaway copy.
+    if not ctx.config.get("repos_volume") or ctx.dev_root != (Path.home() / "repos").resolve() or os.path.ismount(ctx.dev_root):
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        dotfiles = Path(temporary) / "dotfiles"
+        runner.run(["git", "clone", "--depth", "1", repo_url(ctx, "dotfiles"), str(dotfiles)])
+        runner.run(["bash", str(dotfiles / "scripts/repos-volume.sh")])
+
+
 def install_brew(ctx: Context, runner: Runner) -> None:
     dotfiles = ensure_repo(ctx, runner, "dotfiles")
     brewfiles = ctx.config.get("brewfiles", [])
@@ -250,6 +263,11 @@ def apply(ctx: Context) -> None:
     print_plan(ctx)
     print("")
 
+    ensure_repos_volume(ctx, runner)
+    # Keep a checkout of new-mac itself beside the others; the bootstrap clone
+    # in /tmp is only for the first run.
+    if repo_url(ctx, "new-mac"):
+        ensure_repo(ctx, runner, "new-mac")
     if "agents" in ctx.components:
         install_agents(ctx, runner)
     if "brew" in ctx.components:

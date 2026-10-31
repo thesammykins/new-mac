@@ -3,11 +3,14 @@
 The single setup and maintenance entry point for Sammy's Macs.
 
 ```bash
-git clone https://github.com/thesammykins/new-mac.git ~/Development/new-mac && ~/Development/new-mac/setup.sh
+git clone https://github.com/thesammykins/new-mac.git /tmp/new-mac && /tmp/new-mac/setup.sh
 ```
 
 On a brand-new Mac, `git` first offers to install the Command Line Tools; run
-the line again once they finish. Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
+the line again once they finish. Setup clones everything, including new-mac
+itself, into `~/repos`; on personal, work and agent-dev Macs it first makes
+`~/repos` its own APFS volume (dotfiles' `repos-volume.sh`, which asks for sudo).
+Later runs use `~/repos/new-mac`. Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
 to ask you before it changes anything. Profiles: `personal`, `agent-dev`,
 `work`, `minimal`, and `ci` for CI runner Macs.
 
