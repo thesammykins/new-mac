@@ -125,9 +125,10 @@ def install_agents(ctx: Context, runner: Runner) -> None:
         else:
             path.mkdir(parents=True, exist_ok=True)
             print(f"created {path}")
-    # Codex and OpenCode read the same instructions and skills as Claude Code.
+    # Codex, Amp and OpenCode read the same instructions and skills as Claude Code.
     home = Path.home()
     link_into_place(home / ".codex/AGENTS.md", home / ".agents/AGENTS.md", runner)
+    link_into_place(home / ".config/amp/AGENTS.md", home / ".agents/AGENTS.md", runner)
     link_into_place(home / ".config/opencode/AGENTS.md", home / ".agents/AGENTS.md", runner)
     link_into_place(home / ".config/opencode/skills", home / ".agents/skills", runner)
 

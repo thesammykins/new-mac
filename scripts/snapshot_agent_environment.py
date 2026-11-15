@@ -78,6 +78,7 @@ def main() -> None:
         HOME / ".claude/CLAUDE.md",
         HOME / ".claude/skills",
         HOME / ".claude/agents",
+        HOME / ".config/amp/AGENTS.md",
         HOME / ".config/opencode/AGENTS.md",
         HOME / ".config/opencode/skills",
         HOME / ".config/mise/config.toml",

@@ -138,6 +138,7 @@ def ensure_consumer_links() -> None:
         HOME / ".claude/CLAUDE.md": HOME / ".agents/AGENTS.md",
         HOME / ".claude/skills": HOME / ".agents/skills",
         HOME / ".claude/agents": HOME / ".agents/claude-agents",
+        HOME / ".config/amp/AGENTS.md": HOME / ".agents/AGENTS.md",
         HOME / ".config/opencode/AGENTS.md": HOME / ".agents/AGENTS.md",
         HOME / ".config/opencode/skills": HOME / ".agents/skills",
     }
