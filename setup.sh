@@ -88,6 +88,10 @@ main() {
 		exit 0
 	fi
 
+	# mise reads mise.toml from the working directory, and the README line
+	# runs this script from wherever the shell happens to be.
+	cd "$REPO_ROOT"
+
 	ensure_macos
 	ensure_xcode_cli_tools
 	ensure_homebrew
