@@ -41,7 +41,11 @@ def tree_manifest(root: Path) -> dict[str, dict[str, str | int]]:
 
 
 def run_inventory(command: list[str], target: Path) -> None:
-    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    try:
+        result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
+    except FileNotFoundError:
+        target.write_text(f"{command[0]} is not installed\n", encoding="utf-8")
+        return
     target.write_text(result.stdout, encoding="utf-8")
 
 

@@ -20,10 +20,10 @@ Run without arguments for the guided Mac setup menu.
 Existing flags remain available for automation and scripted recovery.
 
 Common flags:
-  --profile personal|work|minimal|agent-dev|ci
+  --profile personal|work|minimal|ci
   --mode interactive|assume-defaults|ci
-  --with brew,mas,dotfiles,skills,codex-stuff,codex,claude,opencode,defaults
-  --skip brew,mas,dotfiles,skills,plugins,claude,defaults
+  --with brew,dotfiles,skills,codex-stuff,claude,defaults
+  --skip brew,dotfiles,skills,plugins,claude,defaults
   --dry-run
   --yes
   --dev-root PATH

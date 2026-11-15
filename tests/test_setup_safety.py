@@ -260,6 +260,16 @@ class ReposVolumeTests(unittest.TestCase):
         self.assertEqual(self.volume_commands("personal", mounted=True), [])
         self.assertEqual(self.volume_commands("ci", mounted=False), [])
 
+    def test_a_repos_folder_that_already_has_files_stays_a_plain_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            home = Path(temporary).resolve()
+            (home / "repos/project").mkdir(parents=True)
+            runner = mock.Mock()
+            with mock.patch.object(ACTIONS.Path, "home", return_value=home), redirect_stdout(io.StringIO()) as out:
+                ACTIONS.ensure_repos_volume(context(profile="personal", dev_root=home / "repos"), runner)
+            runner.run.assert_not_called()
+            self.assertIn("plain folder", out.getvalue())
+
     def test_apply_makes_the_volume_before_cloning_anything(self) -> None:
         ctx = context(profile="personal")
         order = []

@@ -3,6 +3,9 @@ dev_root = "~/repos"
 # repos-volume.sh). Desktop profiles turn this on; CI and minimal Macs use a
 # plain folder.
 repos_volume = false
+# Install the Rex terminal (dotfiles' install-rex.sh). Desktop profiles turn
+# this on.
+rex = false
 default_mode = "interactive"
 default_components = ["agents", "brew", "dotfiles"]
 brewfiles = ["Brewfile"]

@@ -35,7 +35,6 @@ PROFILE_MENU = (
     MenuItem("Personal", "personal"),
     MenuItem("Work", "work"),
     MenuItem("Minimal", "minimal"),
-    MenuItem("Agent Development", "agent-dev"),
     MenuItem("CI Runner", "ci"),
 )
 

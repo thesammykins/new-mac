@@ -1,3 +1,4 @@
 default_components = ["agents", "brew", "dotfiles", "skills"]
 repos_volume = true
+rex = true
 brewfiles = ["Brewfile", "Brewfile.dev"]

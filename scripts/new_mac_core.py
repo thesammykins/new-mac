@@ -22,13 +22,10 @@ COMPONENT_ORDER = [
     "agents",
     "brew",
     "dotfiles",
-    "codex",
     "claude",
-    "opencode",
     "skills",
     "codex-stuff",
     "defaults",
-    "mas",
 ]
 VALID_COMPONENTS = set(COMPONENT_ORDER)
 

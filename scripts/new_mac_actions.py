@@ -127,23 +127,16 @@ def install_agents(ctx: Context, runner: Runner) -> None:
             print(f"created {path}")
 
 
-def install_codex_cli(ctx: Context, runner: Runner) -> None:
-    if shutil.which("brew") is None and not ctx.dry_run:
-        raise SystemExit("Homebrew is required to install Codex.")
-    runner.run(["brew", "install", "--cask", "codex"])
-
-
-def install_opencode_cli(ctx: Context, runner: Runner) -> None:
-    if shutil.which("brew") is None and not ctx.dry_run:
-        raise SystemExit("Homebrew is required to install OpenCode.")
-    runner.run(["brew", "install", "opencode"])
-
-
 def ensure_repos_volume(ctx: Context, runner: Runner) -> None:
     # repos-volume.sh refuses to mount over a folder that already has files,
     # so the volume must exist before the first clone into ~/repos. Its script
     # lives in dotfiles, which isn't cloned yet: use a throwaway copy.
     if not ctx.config.get("repos_volume") or ctx.dev_root != (Path.home() / "repos").resolve() or os.path.ismount(ctx.dev_root):
+        return
+    if ctx.dev_root.is_dir() and any(ctx.dev_root.iterdir()):
+        # An existing Mac. Moving its projects is a manual step, so set up the
+        # rest in the plain folder instead of stopping here.
+        print(f"Keeping {ctx.dev_root} as a plain folder: it already has files. To move it onto its own volume, see dotfiles README: Repos volume.")
         return
     with tempfile.TemporaryDirectory() as temporary:
         dotfiles = Path(temporary) / "dotfiles"
@@ -161,6 +154,9 @@ def install_brew(ctx: Context, runner: Runner) -> None:
         # dotfiles' tier script trusts the Brewfiles' third-party taps before
         # installing; Homebrew refuses formulae from untrusted taps.
         runner.run(["bash", str(dotfiles / "scripts/brew-tiers.sh"), "install", *brewfiles])
+    if ctx.config.get("rex"):
+        # Rex has no Homebrew cask; dotfiles installs it from its update feed.
+        runner.run(["bash", str(dotfiles / "scripts/install-rex.sh")])
 
 
 def install_dotfiles(ctx: Context, runner: Runner) -> None:
@@ -274,10 +270,6 @@ def apply(ctx: Context) -> None:
         install_brew(ctx, runner)
     if "dotfiles" in ctx.components:
         install_dotfiles(ctx, runner)
-    if "codex" in ctx.components:
-        install_codex_cli(ctx, runner)
-    if "opencode" in ctx.components:
-        install_opencode_cli(ctx, runner)
     if "skills" in ctx.components:
         install_skills(ctx, runner)
     if "codex-stuff" in ctx.components:
@@ -402,12 +394,6 @@ def check(_: Context) -> None:
     for path in required_files:
         if not path.exists():
             problems.append(f"missing {path}")
-
-    expected_plugins = {"arxiv-research", "local-ci-signoff", "prompt-rewriter", "codex-plugin-publisher", "chief-of-staff"}
-    for profile in ("personal", "agent-dev"):
-        missing_plugins = expected_plugins - set(load_profile(profile).get("codex_plugins", []))
-        if missing_plugins:
-            problems.append(f"{profile}: missing Codex plugins {', '.join(sorted(missing_plugins))}")
 
     if problems:
         print("Check failed:")

@@ -8,10 +8,11 @@ git clone https://github.com/thesammykins/new-mac.git /tmp/new-mac && /tmp/new-m
 
 On a brand-new Mac, `git` first offers to install the Command Line Tools; run
 the line again once they finish. Setup clones everything, including new-mac
-itself, into `~/repos`; on personal, work and agent-dev Macs it first makes
-`~/repos` its own APFS volume (dotfiles' `repos-volume.sh`, which asks for sudo).
+itself, into `~/repos`; on personal and work Macs it first makes `~/repos` its
+own APFS volume (dotfiles' `repos-volume.sh`, which asks for sudo). A `~/repos`
+that already has files stays a plain folder.
 Later runs use `~/repos/new-mac`. Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
-to ask you before it changes anything. Profiles: `personal`, `agent-dev`,
+to ask you before it changes anything. Profiles: `personal`,
 `work`, `minimal`, and `ci` for CI runner Macs.
 
 The guided menu handles an existing Mac's safe update, fresh-machine profile
@@ -34,7 +35,6 @@ complete skill inventory and Codex plugins, then runs the doctor.
   holds personal skills.
 - `codex-stuff` owns portable Codex plugins; Claude plugins are listed in
   `profiles/common.toml`.
-- `codex-private-setup` owns private Codex profile and hook policy.
 
 Snapshots remain local under `~/Backups/agent-environment`. Verified snapshots
 are never removed automatically, and every rollback retains the state it replaces.

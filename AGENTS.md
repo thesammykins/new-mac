@@ -9,8 +9,7 @@ profile-driven, and safe to run repeatedly.
 Setup changes the whole machine. Ask the user these, in one message, unless
 they already said:
 
-1. **Which profile?** `personal` (workstation and dev apps), `agent-dev`
-   (same, tuned for agent work), `work` (core and dev tooling, no personal
+1. **Which profile?** `personal` (workstation and dev apps), `work` (core and dev tooling, no personal
    apps), `minimal` (core only), or `ci` (a CI runner Mac).
 2. **Fresh Mac or existing one?** On an existing Mac, use Smart Update so a
    verified snapshot is taken first.
@@ -69,3 +68,7 @@ mise run check
 mise exec -- python scripts/new_mac.py plan --profile personal --dry-run
 mise exec -- python scripts/new_mac.py plan --profile ci --dry-run
 ```
+
+## Standing approvals
+
+- Push the Rex install step, missing-tool snapshot fix and agent-dev profile removal to `origin/main`, after a secret scan ([Sammy's approval](https://ampcode.com/threads/T-01a1c938-4f02-75a8-a875-fc8987a93641)).

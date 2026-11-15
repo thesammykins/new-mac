@@ -39,11 +39,10 @@ class ClaudeSetupTests(unittest.TestCase):
             ACTIONS.link_into_place(link, target, runner)
             runner.run.assert_not_called()
 
-    def test_profiles_with_codex_plugins_also_set_up_claude(self) -> None:
-        for profile in ("personal", "agent-dev"):
-            config = load_profile(profile)
-            self.assertIn("claude", config["default_components"])
-            self.assertTrue(config["claude_plugins"])
+    def test_the_profile_with_codex_plugins_also_sets_up_claude(self) -> None:
+        config = load_profile("personal")
+        self.assertIn("claude", config["default_components"])
+        self.assertTrue(config["claude_plugins"])
 
 
 if __name__ == "__main__":
