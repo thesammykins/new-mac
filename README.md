@@ -11,7 +11,17 @@ the line again once they finish. Setup clones everything, including new-mac
 itself, into `~/repos`; on personal and work Macs it first makes `~/repos` its
 own APFS volume (dotfiles' `repos-volume.sh`, which asks for sudo). A `~/repos`
 that already has files stays a plain folder.
-Later runs use `~/repos/new-mac`. Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
+Later runs use `~/repos/new-mac`.
+
+Sign in to the App Store first: one failed Brewfile entry stops the run, and
+App Store apps fail without a sign-in. Stay at the keyboard for the sudo
+prompts. Afterwards, sign in to 1Password and turn on its SSH agent (commits
+are signed through it), run `gh auth login`, then synchronize skills from the
+menu to pick up the private ones. macOS defaults are not applied by the menu;
+run `DOTFILES_APPLY_MACOS_DEFAULTS=1 bash ~/repos/dotfiles/scripts/install.sh`,
+or pass `--with defaults` to a scripted apply.
+
+Or have an agent do it: point it at [AGENTS.md](AGENTS.md), which lists what
 to ask you before it changes anything. Profiles: `personal`,
 `work`, `minimal`, and `ci` for CI runner Macs.
 
@@ -47,6 +57,5 @@ mise run check
 mise run audit
 ```
 
-The direct Python commands and compatibility flags remain available for CI,
-isolated testing, and scripted recovery, but are intentionally outside the normal
-setup path. Run `mise exec -- python scripts/new_mac.py --help` when that interface is needed.
+The menu is for a person at the keyboard. Agents, CI and scripted recovery use
+the direct commands in [AGENTS.md](AGENTS.md); `mise exec -- python scripts/new_mac.py --help` lists them.

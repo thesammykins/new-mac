@@ -15,7 +15,9 @@ they already said:
    verified snapshot is taken first.
 3. **Apply macOS defaults?** Only with `--with defaults`; never by default.
 4. **Should this Mac get private skills?** It needs `gh auth login` with access
-   to `thesammykins/skills-private`. Without access, setup warns and carries on.
+   to `thesammykins/skills-private`. On a fresh Mac `gh` arrives with the brew
+   step, so the first run warns and skips them; log in, then run the skills
+   step again.
 5. **Any tier to remove?** Removing a Brewfile tier uninstalls apps. Preview
    with `scripts/brew-tiers.sh uninstall <tier>` in dotfiles and get a yes
    before adding `--apply`.
@@ -37,12 +39,20 @@ On an existing Mac use `mise exec -- python scripts/new_mac.py smart-update --pr
 
 ## What each component does
 
+Before any component, personal and work profiles (`repos_volume = true`) make
+`~/repos` its own APFS volume with dotfiles' `repos-volume.sh`, which needs sudo.
+
+- `agents`: creates `~/.agents` and links Codex's and OpenCode's instructions
+  and OpenCode's skills folder to it.
 - `brew`: installs the profile's Brewfile tiers through dotfiles'
-  `scripts/brew-tiers.sh`, which trusts each Brewfile's taps first.
+  `scripts/brew-tiers.sh`, which trusts each Brewfile's taps first. One failed
+  entry stops the run, so the App Store must be signed in. Profiles with
+  `rex = true` then run dotfiles' `install-rex.sh`.
 - `dotfiles`: links shell and app config from `thesammykins/dotfiles`.
 - `skills`: installs the public catalog, the pinned external skills, and the
   private skills when the Mac can clone them.
-- `codex`, `codex-stuff`: Codex CLI and its plugins.
+- `codex-stuff`: the Codex plugins listed in `profiles/common.toml`. The Codex
+  CLI itself comes from the dev Brewfile tier.
 - `claude`: Claude Code from the dev Brewfile tier's `claude-code` cask, `~/.claude`
   links to the shared instructions and skills, and the Claude plugins listed
   in `profiles/common.toml`. Existing Claude files are backed up, not deleted.
